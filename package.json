@@ -1,0 +1,21 @@
+{
+  "name": "atl-monitoring-stok",
+  "version": "1.0.0",
+  "description": "SCADA-style stock monitoring dashboard for ATL Energy, backed 100% by Mekari Jurnal API (no local database).",
+  "main": "server.cjs",
+  "scripts": {
+    "start": "node server.cjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.19.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "keywords": [],
+  "author": ""
+}
