@@ -28,12 +28,12 @@ const HMAC_SECRET =
 // ============================================================
 // PRODUCT CATEGORIES
 //
-// ID 3 produk sudah di-hardcode di sini (Bahan Baku, Solar
-// HSD, Solar Murni) — .env cukup HMAC username/secret + PORT,
-// gak perlu diisi ID produk. Kalau nanti ID-nya ganti, tinggal
-// edit angka di bawah, ATAU override lewat .env pakai
-// MEKARI_PRODUCT_ID_BAHAN_BAKU / _SOLAR_HSD / _SOLAR_MURNI
-// kalau mau tanpa ubah kode.
+// ID produk sudah di-hardcode di sini — .env cukup HMAC
+// username/secret + PORT, gak perlu diisi ID produk. Kalau
+// nanti ID-nya ganti atau nambah produk baru, tinggal
+// tambah/edit entry di array bawah, ATAU override lewat .env
+// pakai MEKARI_PRODUCT_ID_<KEY_UPPERCASE> kalau mau tanpa
+// ubah kode.
 // ============================================================
 
 const ALL_PRODUCT_CATEGORIES = [
@@ -51,6 +51,16 @@ const ALL_PRODUCT_CATEGORIES = [
     key: 'solar_murni',
     label: 'Solar Murni',
     id: process.env.MEKARI_PRODUCT_ID_SOLAR_MURNI || '105035777'
+  },
+  {
+    key: 'atl_pro',
+    label: 'ATL-Pro',
+    id: process.env.MEKARI_PRODUCT_ID_ATL_PRO || '105040526'
+  },
+  {
+    key: 'atl_diesel',
+    label: 'ATL-Diesel',
+    id: process.env.MEKARI_PRODUCT_ID_ATL_DIESEL || '105040667'
   }
 ];
 
@@ -84,9 +94,16 @@ console.log('');
 if (
   PRODUCT_CATEGORIES.length < ALL_PRODUCT_CATEGORIES.length
 ) {
+
+  const missing =
+    ALL_PRODUCT_CATEGORIES
+      .filter((category) => !category.id)
+      .map((category) => category.label)
+      .join(', ');
+
   console.warn(
-    '[WARNING] Belum semua product ID kategori terisi. ' +
-    'Set MEKARI_PRODUCT_ID_BAHAN_BAKU dan/atau MEKARI_PRODUCT_ID_SOLAR_MURNI di .env, ' +
+    `[WARNING] Kategori belum diisi ID: ${missing}. ` +
+    'Isi di ALL_PRODUCT_CATEGORIES (server.cjs) atau lewat .env, ' +
     'lalu RESTART server. Cek juga GET /api/debug-categories.'
   );
 }
