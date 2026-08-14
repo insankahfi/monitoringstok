@@ -26,6 +26,88 @@ const HMAC_SECRET =
 
 
 // ============================================================
+// PRODUCT CATEGORIES
+//
+// ID 3 produk sudah di-hardcode di sini (Bahan Baku, Solar
+// HSD, Solar Murni) — .env cukup HMAC username/secret + PORT,
+// gak perlu diisi ID produk. Kalau nanti ID-nya ganti, tinggal
+// edit angka di bawah, ATAU override lewat .env pakai
+// MEKARI_PRODUCT_ID_BAHAN_BAKU / _SOLAR_HSD / _SOLAR_MURNI
+// kalau mau tanpa ubah kode.
+// ============================================================
+
+const ALL_PRODUCT_CATEGORIES = [
+  {
+    key: 'bahan_baku',
+    label: 'Bahan Baku',
+    id: process.env.MEKARI_PRODUCT_ID_BAHAN_BAKU || '104647330'
+  },
+  {
+    key: 'solar_hsd',
+    label: 'Solar HSD',
+    id: process.env.MEKARI_PRODUCT_ID_SOLAR_HSD || '48285791'
+  },
+  {
+    key: 'solar_murni',
+    label: 'Solar Murni',
+    id: process.env.MEKARI_PRODUCT_ID_SOLAR_MURNI || '105035777'
+  }
+];
+
+const PRODUCT_CATEGORIES =
+  ALL_PRODUCT_CATEGORIES.filter(
+    (category) => category.id
+  );
+
+
+console.log('');
+console.log('[PRODUCT CATEGORIES]');
+
+ALL_PRODUCT_CATEGORIES.forEach(
+  (category) => {
+
+    console.log(
+      ` - ${category.label} (${category.key}): ` +
+      (
+        category.id
+          ? `AKTIF, id=${category.id}`
+          : 'BELUM DIISI — set di .env, kategori ini TIDAK akan ditarik dari Mekari'
+      )
+    );
+
+  }
+);
+
+console.log('');
+
+
+if (
+  PRODUCT_CATEGORIES.length < ALL_PRODUCT_CATEGORIES.length
+) {
+  console.warn(
+    '[WARNING] Belum semua product ID kategori terisi. ' +
+    'Set MEKARI_PRODUCT_ID_BAHAN_BAKU dan/atau MEKARI_PRODUCT_ID_SOLAR_MURNI di .env, ' +
+    'lalu RESTART server. Cek juga GET /api/debug-categories.'
+  );
+}
+
+
+// ============================================================
+// MOVEMENT / TRANSACTION ENDPOINT (JURNAL)
+//
+// PENTING: path di bawah ini masih PLACEHOLDER — belum
+// diverifikasi ke dokumentasi Mekari Jurnal SCM API yang asli.
+// Ganti MEKARI_MOVEMENT_PATH di .env begitu path resminya
+// diketahui (biasanya sejenis "stock movement" / "stock card"
+// / "inventory transaction" di modul SCM Jurnal).
+// ============================================================
+
+const MEKARI_MOVEMENT_PATH =
+  process.env.MEKARI_MOVEMENT_PATH ||
+  '/public/jurnal/scm/public/lo/v1/products/get_product_stock_movement';
+
+
+// ============================================================
 // CHECK ENV
 // ============================================================
 
@@ -197,6 +279,92 @@ async function mekariGet(
 //   quantity
 // ============================================================
 
+function mapMekariProductToData(
+  product,
+  fallbackId
+) {
+
+  const inventory =
+    Array.isArray(
+      product.warehouse_inventory
+    )
+      ? product.warehouse_inventory
+      : [];
+
+
+  const warehouses =
+    inventory.map(
+      (warehouse) => {
+
+        const quantity =
+          Number(
+            warehouse?.quantity
+          ) || 0;
+
+
+        return {
+
+          id:
+            warehouse?.id ??
+            null,
+
+          name:
+            warehouse?.name ??
+            warehouse?.code ??
+            'Warehouse',
+
+          code:
+            warehouse?.code ??
+            '',
+
+          quantity,
+
+          quantity_available:
+            quantity
+
+        };
+
+      }
+    );
+
+
+  return {
+
+    id:
+      product.id ??
+      fallbackId,
+
+    name:
+      product.name ??
+      'Produk',
+
+    sku:
+      product.code ??
+      '-',
+
+    unit:
+      product.unit ??
+      'Liter',
+
+    // Total seluruh warehouse.
+    // BUKAN stok satu tank saja.
+    quantity:
+      Number(
+        product.quantity
+      ) || 0,
+
+    quantity_available:
+      Number(
+        product.quantity
+      ) || 0,
+
+    warehouses
+
+  };
+
+}
+
+
 app.get(
   '/api/product/:id',
   async (req, res) => {
@@ -249,20 +417,6 @@ app.get(
     }
 
 
-    console.log(
-      '[RAW STOCK RESPONSE]',
-      JSON.stringify(
-        result.data,
-        null,
-        2
-      ).slice(0, 15000)
-    );
-
-
-    // ==========================================================
-    // AMBIL PRODUCT DARI data[0]
-    // ==========================================================
-
     const product =
       Array.isArray(
         result.data?.data
@@ -288,51 +442,162 @@ app.get(
     }
 
 
-    // ==========================================================
-    // AMBIL WAREHOUSE INVENTORY
-    // ==========================================================
+    return res.json({
+      success: true,
+      data:
+        mapMekariProductToData(
+          product,
+          productId
+        )
+    });
 
-    const inventory =
+  }
+);
+
+
+// ============================================================
+// MULTI-CATEGORY STOCK
+//
+// Menarik semua kategori produk (Bahan Baku, Solar HSD,
+// Solar Murni) sekaligus dalam satu request ke Mekari, lalu
+// mengembalikan data per kategori supaya setiap tangki di
+// frontend menampilkan isi asli warehouse-nya, bukan cuma
+// satu produk yang di-hardcode.
+// ============================================================
+
+app.get(
+  '/api/stock',
+  async (req, res) => {
+
+    if (!PRODUCT_CATEGORIES.length) {
+
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error:
+            'Belum ada product ID kategori yang dikonfigurasi di .env.'
+        });
+
+    }
+
+
+    const ids =
+      PRODUCT_CATEGORIES
+        .map((category) => category.id)
+        .join(',');
+
+
+    const result =
+      await mekariGet(
+        '/public/jurnal/scm/public/lo/v1/products/get_product_quantity_per_warehouse',
+        {
+          ids
+        }
+      );
+
+
+    if (!result.ok) {
+
+      return res
+        .status(result.status)
+        .json({
+          success: false,
+          error:
+            result.error?.message ||
+            `Mekari error ${result.status}`,
+          detail:
+            result.error
+        });
+
+    }
+
+
+    const list =
       Array.isArray(
-        product.warehouse_inventory
+        result.data?.data
       )
-        ? product.warehouse_inventory
+        ? result.data.data
         : [];
 
 
-    // ==========================================================
-    // MAP WAREHOUSE
-    // ==========================================================
+    const categories =
+      PRODUCT_CATEGORIES.map(
+        (category) => {
 
-    const warehouses =
-      inventory.map(
-        (warehouse) => {
+          const product =
+            list.find(
+              (item) =>
+                String(item?.id) ===
+                String(category.id)
+            );
 
-          const quantity =
-            Number(
-              warehouse?.quantity
-            ) || 0;
+
+          if (!product) {
+
+            return {
+
+              key:
+                category.key,
+
+              label:
+                category.label,
+
+              productId:
+                category.id,
+
+              found:
+                false,
+
+              name:
+                category.label,
+
+              sku:
+                '-',
+
+              unit:
+                'Liter',
+
+              warehouses:
+                []
+
+            };
+
+          }
+
+
+          const data =
+            mapMekariProductToData(
+              product,
+              category.id
+            );
 
 
           return {
 
-            id:
-              warehouse?.id ??
-              null,
+            key:
+              category.key,
+
+            label:
+              category.label,
+
+            productId:
+              data.id,
+
+            found:
+              true,
 
             name:
-              warehouse?.name ??
-              warehouse?.code ??
-              'Warehouse',
+              data.name,
 
-            code:
-              warehouse?.code ??
-              '',
+            sku:
+              data.sku,
 
-            quantity,
+            unit:
+              data.unit,
 
-            quantity_available:
-              quantity
+            warehouses:
+              data.warehouses
 
           };
 
@@ -340,63 +605,205 @@ app.get(
       );
 
 
-    // ==========================================================
-    // DATA KE FRONTEND
-    // ==========================================================
-
-    const data = {
-
-      id:
-        product.id ??
-        productId,
-
-      name:
-        product.name ??
-        'Produk',
-
-      sku:
-        product.code ??
-        '-',
-
-      unit:
-        product.unit ??
-        'Liter',
-
-      // Total seluruh warehouse.
-      // BUKAN stok FST-01.
-      quantity:
-        Number(
-          product.quantity
-        ) || 0,
-
-      quantity_available:
-        Number(
-          product.quantity
-        ) || 0,
-
-      warehouses
-
-    };
-
-
-    console.log(
-      '[WAREHOUSE MAPPING]'
-    );
-
-    warehouses.forEach(
-      (warehouse) => {
-
-        console.log(
-          `${warehouse.code || warehouse.name}: ${warehouse.quantity}`
-        );
-
-      }
-    );
+    const unconfigured =
+      ALL_PRODUCT_CATEGORIES
+        .filter((category) => !category.id)
+        .map((category) => category.label);
 
 
     return res.json({
       success: true,
-      data
+      data: {
+        categories
+      },
+      unconfigured
+    });
+
+  }
+);
+
+
+// ============================================================
+// MOVEMENTS / TRANSACTION LIST (LOG BAHAN & LOG PRODUK)
+//
+// PENTING: path & bentuk response Mekari untuk stock
+// movement/transaction list BELUM diverifikasi (lihat
+// MEKARI_MOVEMENT_PATH di atas). Sesuaikan parsing di bawah
+// begitu response asli dari Jurnal diketahui.
+// ============================================================
+
+app.get(
+  '/api/movements',
+  async (req, res) => {
+
+    const category =
+      String(
+        req.query.category || 'product'
+      ).trim();
+
+    const limit =
+      Number(req.query.limit) || 20;
+
+
+    const ids =
+      category === 'raw'
+        ? (
+            PRODUCT_CATEGORIES.find(
+              (c) => c.key === 'bahan_baku'
+            )?.id || ''
+          )
+        : PRODUCT_CATEGORIES
+            .filter(
+              (c) => c.key !== 'bahan_baku'
+            )
+            .map((c) => c.id)
+            .join(',');
+
+
+    if (!ids) {
+
+      return res
+        .status(200)
+        .json({
+          success: true,
+          data: []
+        });
+
+    }
+
+
+    const result =
+      await mekariGet(
+        MEKARI_MOVEMENT_PATH,
+        {
+          ids,
+          per_page: limit
+        }
+      );
+
+
+    if (!result.ok) {
+
+      return res
+        .status(result.status)
+        .json({
+          success: false,
+          error:
+            result.error?.message ||
+            `Mekari error ${result.status}. ` +
+            'Cek MEKARI_MOVEMENT_PATH di .env — endpoint ini masih placeholder.',
+          detail:
+            result.error
+        });
+
+    }
+
+
+    const rows =
+      Array.isArray(
+        result.data?.data
+      )
+        ? result.data.data
+        : [];
+
+
+    const movements =
+      rows
+        .slice(0, limit)
+        .map(
+          (row) => ({
+
+            date:
+              row.date ??
+              row.transaction_date ??
+              row.created_at ??
+              null,
+
+            type:
+              row.type ??
+              row.transaction_type ??
+              row.movement_type ??
+              '-',
+
+            productName:
+              row.product_name ??
+              row.product?.name ??
+              '-',
+
+            warehouse:
+              row.warehouse_name ??
+              row.warehouse?.name ??
+              row.warehouse_code ??
+              '-',
+
+            quantity:
+              Number(
+                row.quantity ??
+                row.qty ??
+                0
+              ) || 0,
+
+            unit:
+              row.unit ??
+              'Liter',
+
+            note:
+              row.description ??
+              row.note ??
+              row.reference_number ??
+              ''
+
+          })
+        );
+
+
+    return res.json({
+      success: true,
+      data: movements
+    });
+
+  }
+);
+
+
+// ============================================================
+// DEBUG: CEK KATEGORI PRODUK AKTIF
+//
+// Buka langsung di browser: /api/debug-categories
+// Buat mastiin .env kebaca bener & server sudah restart
+// setelah ID Bahan Baku / Solar Murni diisi.
+// ============================================================
+
+app.get(
+  '/api/debug-categories',
+  (req, res) => {
+
+    res.json({
+
+      success: true,
+
+      categories:
+        ALL_PRODUCT_CATEGORIES.map(
+          (category) => ({
+
+            key:
+              category.key,
+
+            label:
+              category.label,
+
+            configured:
+              Boolean(category.id),
+
+            id:
+              category.id || null
+
+          })
+        ),
+
+      note:
+        'Kalau "configured" ada yang false, isi ID-nya di .env lalu RESTART server (bukan cuma save file).'
+
     });
 
   }
