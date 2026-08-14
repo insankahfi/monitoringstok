@@ -535,7 +535,7 @@ button{
   display:grid;
 
   grid-template-columns:
-    1fr 1fr;
+    repeat(4, 1fr);
 
   overflow:hidden;
 
@@ -555,26 +555,16 @@ button{
 .summary-item{
 
   padding:
-    20px;
+    14px 12px;
 
   border-right:
-    1px solid var(--line);
-
-  border-bottom:
     1px solid var(--line);
 }
 
 
-.summary-item:nth-child(2n){
+.summary-item:last-child{
 
   border-right:
-    0;
-}
-
-
-.summary-item:nth-child(n+3){
-
-  border-bottom:
     0;
 }
 
@@ -583,27 +573,39 @@ button{
 
   color:#8a95a7;
 
-  font-size:.62rem;
+  font-size:.58rem;
 
-  letter-spacing:.08em;
+  letter-spacing:.06em;
 
   text-transform:uppercase;
 
   font-weight:800;
+
+  white-space:nowrap;
+
+  overflow:hidden;
+
+  text-overflow:ellipsis;
 }
 
 
 .summary-item .v{
 
-  margin-top:7px;
+  margin-top:6px;
 
   color:#172033;
 
-  font-size:1.45rem;
+  font-size:clamp(.95rem, 1.6vw, 1.2rem);
 
   font-weight:900;
 
-  letter-spacing:-.03em;
+  letter-spacing:-.02em;
+
+  white-space:nowrap;
+
+  overflow:hidden;
+
+  text-overflow:ellipsis;
 }
 
 
@@ -613,7 +615,13 @@ button{
 
   color:var(--muted);
 
-  font-size:.67rem;
+  font-size:.6rem;
+
+  white-space:nowrap;
+
+  overflow:hidden;
+
+  text-overflow:ellipsis;
 }
 
 
@@ -921,7 +929,97 @@ button{
 
   min-height:115px;
 
-  padding:15px;
+  max-height:340px;
+
+  padding:8px 15px;
+
+  overflow-y:auto;
+}
+
+
+.log-entry{
+
+  display:flex;
+
+  align-items:center;
+
+  justify-content:space-between;
+
+  gap:12px;
+
+  padding:12px 4px;
+
+  border-bottom:
+    1px solid var(--line);
+}
+
+
+.log-entry:last-child{
+
+  border-bottom:0;
+}
+
+
+.log-entry .log-main{
+
+  min-width:0;
+}
+
+
+.log-entry .log-title{
+
+  color:#253047;
+
+  font-size:.8rem;
+
+  font-weight:800;
+
+  white-space:nowrap;
+
+  overflow:hidden;
+
+  text-overflow:ellipsis;
+}
+
+
+.log-entry .log-sub{
+
+  margin-top:3px;
+
+  color:#9aa5b5;
+
+  font-size:.68rem;
+}
+
+
+.log-entry .log-qty{
+
+  flex-shrink:0;
+
+  text-align:right;
+
+  font-size:.82rem;
+
+  font-weight:900;
+
+  letter-spacing:-.02em;
+
+  white-space:nowrap;
+}
+
+
+.log-qty.in{
+  color:var(--green);
+}
+
+
+.log-qty.out{
+  color:var(--red);
+}
+
+
+.log-qty.neutral{
+  color:#536074;
 }
 
 
@@ -1436,15 +1534,58 @@ textarea{
       <div class="summary-item">
 
         <div class="k">
+          Solar HSD
+        </div>
+
+        <div
+          class="v"
+          id="summarySolarHsd"
+        >
+          -
+        </div>
+
+        <div class="s">
+          Total tangki
+        </div>
+
+      </div>
+
+
+      <div class="summary-item">
+
+        <div class="k">
+          Solar Murni
+        </div>
+
+        <div
+          class="v"
+          id="summarySolarMurni"
+        >
+          -
+        </div>
+
+        <div class="s">
+          Total tangki
+        </div>
+
+      </div>
+
+
+      <div class="summary-item">
+
+        <div class="k">
           Bahan Baku
         </div>
 
-        <div class="v">
-          5
+        <div
+          class="v"
+          id="summaryBahanBaku"
+        >
+          -
         </div>
 
         <div class="s">
-          ST-01 s/d ST-05
+          Total tangki
         </div>
 
       </div>
@@ -1453,49 +1594,18 @@ textarea{
       <div class="summary-item">
 
         <div class="k">
-          Produk
+          Tirisan
         </div>
 
-        <div class="v">
-          6
-        </div>
-
-        <div class="s">
-          FST-01 s/d TK-04
-        </div>
-
-      </div>
-
-
-      <div class="summary-item">
-
-        <div class="k">
-          Status
-        </div>
-
-        <div class="v">
-          LIVE
+        <div
+          class="v"
+          id="summaryTirisan"
+        >
+          -
         </div>
 
         <div class="s">
-          Backend aktif
-        </div>
-
-      </div>
-
-
-      <div class="summary-item">
-
-        <div class="k">
-          Sumber
-        </div>
-
-        <div class="v">
-          JURNAL
-        </div>
-
-        <div class="s">
-          Stok Opname
+          Tangki belum dibuat
         </div>
 
       </div>
@@ -1903,8 +2013,7 @@ textarea{
       >
 
         <div class="empty-state">
-          Histori mutasi akan tampil setelah
-          endpoint movement dihubungkan.
+          Memuat transaksi...
         </div>
 
       </div>
@@ -1918,24 +2027,23 @@ textarea{
       <div class="panel-header">
 
         <h2 class="panel-title">
-          LOG PRODUKSI
+          LOG PRODUK
         </h2>
 
         <span class="panel-caption">
-          Pergerakan produk
+          Transaksi dari Jurnal
         </span>
 
       </div>
 
 
       <div
-        id="logProduksi"
+        id="logProduk"
         class="log-box"
       >
 
         <div class="empty-state">
-          Histori produksi akan tampil setelah
-          endpoint movement dihubungkan.
+          Memuat transaksi...
         </div>
 
       </div>
