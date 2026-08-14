@@ -2,7 +2,6 @@
   'use strict';
 
   const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
-  const TEST_PRODUCT_ID = '48285791';
 
   // ============================================================
   // MASTER TANK
@@ -48,6 +47,36 @@
     lastUpdate:
       document.getElementById(
         'lastUpdate'
+      ),
+
+    logBahan:
+      document.getElementById(
+        'logBahan'
+      ),
+
+    logProduk:
+      document.getElementById(
+        'logProduk'
+      ),
+
+    summarySolarHsd:
+      document.getElementById(
+        'summarySolarHsd'
+      ),
+
+    summarySolarMurni:
+      document.getElementById(
+        'summarySolarMurni'
+      ),
+
+    summaryBahanBaku:
+      document.getElementById(
+        'summaryBahanBaku'
+      ),
+
+    summaryTirisan:
+      document.getElementById(
+        'summaryTirisan'
       ),
 
     refreshBtn:
@@ -158,18 +187,35 @@
 
     try {
 
-      const product =
-        await fetchProduct(
-          TEST_PRODUCT_ID
-        );
+      const {
+        categories,
+        unconfigured
+      } = await fetchStock();
 
 
-      renderProduct(
-        product
+      renderStock(
+        categories
       );
 
 
       updateLastUpdate();
+
+
+      if (
+        unconfigured &&
+        unconfigured.length
+      ) {
+
+        showGlobalError(
+          `Kategori belum terhubung ke Mekari: ${unconfigured.join(', ')}. ` +
+          `Isi product ID-nya di .env server lalu restart.`
+        );
+
+      } else {
+
+        hideGlobalError();
+
+      }
 
 
     } catch (err) {
@@ -192,28 +238,40 @@
       );
 
 
-    } finally {
+    }
 
-      isFetching = false;
 
-      setLoading(false);
+    // Log tidak boleh menggagalkan dashboard utama.
+    try {
+
+      await loadMovements();
+
+    } catch (err) {
+
+      console.error(
+        '[Movements]',
+        err
+      );
 
     }
+
+
+    isFetching = false;
+
+    setLoading(false);
 
   }
 
 
   // ============================================================
-  // FETCH PRODUCT
+  // FETCH STOCK (SEMUA KATEGORI SEKALIGUS)
   // ============================================================
 
-  async function fetchProduct(
-    productId
-  ) {
+  async function fetchStock() {
 
     const res =
       await fetch(
-        `/api/product/${encodeURIComponent(productId)}`
+        '/api/stock'
       );
 
 
@@ -238,7 +296,7 @@
 
       throw new Error(
         body.error ||
-        'Gagal mengambil data product.'
+        'Gagal mengambil data stok.'
       );
 
     }
@@ -248,82 +306,213 @@
 
       throw new Error(
         body.error ||
-        'Mekari tidak mengembalikan data product.'
+        'Mekari tidak mengembalikan data stok.'
       );
 
     }
 
 
-    return normalizeProduct(
-      body.data
-    );
+    return {
+
+      categories:
+        Array.isArray(
+          body.data?.categories
+        )
+          ? body.data.categories
+          : [],
+
+      unconfigured:
+        Array.isArray(body.unconfigured)
+          ? body.unconfigured
+          : []
+
+    };
 
   }
 
 
   // ============================================================
-  // NORMALIZE
+  // MOVEMENTS / TRANSACTION LIST
   // ============================================================
 
-  function normalizeProduct(
-    raw
+  async function loadMovements() {
+
+    await Promise.all([
+
+      loadMovementsInto(
+        el.logBahan,
+        'raw',
+        'Belum ada transaksi bahan baku.'
+      ),
+
+      loadMovementsInto(
+        el.logProduk,
+        'product',
+        'Belum ada transaksi produk.'
+      )
+
+    ]);
+
+  }
+
+
+  async function loadMovementsInto(
+    container,
+    category,
+    emptyMessage
   ) {
 
-    const product =
-      raw?.data ||
-      raw ||
-      {};
+    if (!container) {
+      return;
+    }
 
 
-    return {
+    try {
 
-      id:
-        product.id ??
-        product.product_id ??
-        TEST_PRODUCT_ID,
+      const res =
+        await fetch(
+          `/api/movements?category=${category}&limit=20`
+        );
 
-      name:
-        product.name ??
-        product.product_name ??
-        'Solar HSD',
 
-      sku:
-        product.sku ??
-        product.code ??
-        product.product_code ??
-        '-',
+      const body =
+        await res.json();
 
-      quantity:
-        toNumber(
-          product.quantity
-        ) ?? 0,
 
-      quantityAvailable:
-        toNumber(
-          product.quantity_available
-        ) ??
-        toNumber(
-          product.quantity
-        ) ??
-        0,
+      if (
+        !res.ok ||
+        !body.success
+      ) {
 
-      unit:
-        product.unit ??
-        product.uom ??
-        product.unit_name ??
-        'Liter',
+        throw new Error(
+          body.error ||
+          'Gagal mengambil transaksi.'
+        );
 
-      warehouses:
-        Array.isArray(
-          product.warehouses
+      }
+
+
+      renderMovements(
+        container,
+        body.data || [],
+        emptyMessage
+      );
+
+
+    } catch (err) {
+
+      console.error(
+        '[Movements]',
+        category,
+        err
+      );
+
+
+      container.innerHTML = `
+        <div class="empty-state">
+          ${escapeHtml(
+            err.message ||
+            'Transaksi belum bisa dimuat.'
+          )}
+        </div>
+      `;
+
+    }
+
+  }
+
+
+  function renderMovements(
+    container,
+    rows,
+    emptyMessage
+  ) {
+
+    if (
+      !Array.isArray(rows) ||
+      !rows.length
+    ) {
+
+      container.innerHTML = `
+        <div class="empty-state">
+          ${escapeHtml(emptyMessage)}
+        </div>
+      `;
+
+      return;
+
+    }
+
+
+    container.innerHTML =
+      rows
+        .map(
+          (row) => {
+
+            const qtyNum =
+              toNumber(row.quantity) ?? 0;
+
+
+            const direction =
+              qtyNum > 0
+                ? 'in'
+                : qtyNum < 0
+                  ? 'out'
+                  : 'neutral';
+
+
+            const dateLabel =
+              row.date
+                ? formatDateTime(
+                    new Date(row.date)
+                  )
+                : '-';
+
+
+            return `
+
+              <div class="log-entry">
+
+                <div class="log-main">
+
+                  <div class="log-title">
+                    ${escapeHtml(
+                      row.productName || '-'
+                    )}
+                    ${
+                      row.type
+                        ? ' · ' + escapeHtml(row.type)
+                        : ''
+                    }
+                  </div>
+
+                  <div class="log-sub">
+                    ${escapeHtml(dateLabel)}
+                    ${
+                      row.warehouse &&
+                      row.warehouse !== '-'
+                        ? ' · ' + escapeHtml(row.warehouse)
+                        : ''
+                    }
+                  </div>
+
+                </div>
+
+                <div class="log-qty ${direction}">
+                  ${formatQtyUnit(
+                    qtyNum,
+                    row.unit || 'Liter',
+                    true
+                  )}
+                </div>
+
+              </div>
+
+            `;
+
+          }
         )
-          ? product.warehouses
-          : [],
-
-      raw:
-        product
-
-    };
+        .join('');
 
   }
 
@@ -430,39 +619,45 @@
 
 
   // ============================================================
-  // RENDER PRODUCT
+  // RENDER STOCK (SEMUA KATEGORI)
   //
-  // INI INTI FIX:
-  //
-  // 17.000 TOTAL tidak pernah dimasukkan ke FST-01.
-  //
-  // Yang dipakai hanya:
-  //
-  // product.warehouses[]
-  //
+  // Setiap tangki (ST-xx / FST-xx / TK-xx / WT-xx) diisi dari
+  // warehouse yang benar-benar cocok kodenya, ambil dari
+  // kategori manapun yang punya warehouse itu (Bahan Baku,
+  // Solar HSD, atau Solar Murni) — bukan dari satu produk yang
+  // di-hardcode ke semua tangki.
   // ============================================================
 
-  function renderProduct(
-    product
+  function renderStock(
+    categories
   ) {
+
+    const allTanks =
+      RAW_TANKS.concat(
+        PRODUCT_TANKS
+      );
+
 
     const map =
       {};
 
 
     // ----------------------------------------------------------
-    // Buat semua master dengan 0
+    // Default kosong untuk semua tangki dulu.
     // ----------------------------------------------------------
 
-    PRODUCT_TANKS.forEach(
+    allTanks.forEach(
       (tank) => {
+
+        const isRaw =
+          RAW_TANKS.includes(tank);
 
         map[
           normalizeKey(tank)
         ] = {
 
           type:
-            'product',
+            isRaw ? 'raw' : 'product',
 
           label:
             tank,
@@ -471,8 +666,7 @@
             tank,
 
           name:
-            product.name ||
-            'Produk',
+            isRaw ? 'Bahan Baku' : 'Produk',
 
           qty:
             0,
@@ -481,14 +675,13 @@
             0,
 
           unit:
-            product.unit ||
             'Liter',
 
           productId:
-            product.id,
+            null,
 
           sku:
-            product.sku,
+            null,
 
           warehouseId:
             null,
@@ -503,96 +696,188 @@
 
 
     // ----------------------------------------------------------
-    // Isi dari warehouse_inventory
+    // Kumpulkan dulu semua kandidat per tangki dari tiap
+    // kategori (satu tangki bisa muncul di data 3 kategori
+    // sekaligus, biasanya cuma satu yang ada isinya).
     // ----------------------------------------------------------
 
-    product.warehouses.forEach(
-      (warehouse) => {
+    const candidates =
+      {};
 
-        const code =
-          normalizeWarehouseCode(
-            warehouse.code ||
-            warehouse.name
-          );
+    categories.forEach(
+      (category) => {
 
+        (category.warehouses || []).forEach(
+          (warehouse) => {
 
-        const target =
-          PRODUCT_TANKS.find(
-            (tank) =>
+            const code =
               normalizeWarehouseCode(
-                tank
-              ) === code
+                warehouse.code ||
+                warehouse.name
+              );
+
+
+            const target =
+              allTanks.find(
+                (tank) =>
+                  normalizeWarehouseCode(
+                    tank
+                  ) === code
+              );
+
+
+            if (!target) {
+
+              console.log(
+                '[WAREHOUSE DI SKIP]',
+                category.label,
+                warehouse
+              );
+
+              return;
+
+            }
+
+
+            const qty =
+              toNumber(
+                warehouse.quantity
+              ) ?? 0;
+
+
+            const available =
+              toNumber(
+                warehouse.quantity_available
+              ) ??
+              qty;
+
+
+            const key =
+              normalizeKey(target);
+
+
+            if (!candidates[key]) {
+              candidates[key] = [];
+            }
+
+
+            candidates[key].push({
+              target,
+              category,
+              warehouse,
+              qty,
+              available
+            });
+
+          }
+        );
+
+      }
+    );
+
+
+    // ----------------------------------------------------------
+    // Pilih SATU kategori pemenang per tangki: yang isinya
+    // ada (qty != 0). Kalau semua kategori 0 di tangki itu,
+    // tetap tampil kosong. Kalau lebih dari satu kategori
+    // sama-sama ada isi di tangki yang sama (harusnya tidak
+    // terjadi di dunia nyata), pakai yang qty-nya paling
+    // besar dan catat sebagai konflik di console.
+    // ----------------------------------------------------------
+
+    Object.keys(candidates).forEach(
+      (key) => {
+
+        const list =
+          candidates[key];
+
+        const filled =
+          list.filter(
+            (c) => c.qty !== 0
           );
 
 
-        if (!target) {
+        let winner;
 
-          console.log(
-            '[WAREHOUSE DI SKIP]',
-            warehouse
+        if (filled.length === 1) {
+
+          winner =
+            filled[0];
+
+        } else if (filled.length > 1) {
+
+          winner =
+            filled.reduce(
+              (a, b) =>
+                Math.abs(b.qty) > Math.abs(a.qty)
+                  ? b
+                  : a
+            );
+
+          console.warn(
+            '[KONFLIK TANGKI]',
+            winner.target,
+            'ada isi di lebih dari satu kategori:',
+            filled
+              .map(
+                (c) =>
+                  `${c.category.label}=${c.qty}`
+              )
+              .join(', ')
           );
 
-          return;
+        } else {
+
+          winner =
+            list[0];
 
         }
 
 
-        const qty =
-          toNumber(
-            warehouse.quantity
-          ) ?? 0;
-
-
-        const available =
-          toNumber(
-            warehouse.quantity_available
-          ) ??
-          qty;
-
-
-        map[
-          normalizeKey(target)
-        ] = {
+        map[key] = {
 
           type:
-            'product',
+            RAW_TANKS.includes(winner.target)
+              ? 'raw'
+              : 'product',
 
           label:
-            target,
+            winner.target,
 
           code:
-            target,
+            winner.target,
 
           name:
-            product.name ||
+            winner.category.label ||
+            winner.category.name ||
             'Produk',
 
           qty:
-            qty,
+            winner.qty,
 
           availableQty:
-            available,
+            winner.available,
 
           unit:
-            product.unit ||
+            winner.category.unit ||
             'Liter',
 
           productId:
-            product.id,
+            winner.category.productId,
 
           sku:
-            product.sku,
+            winner.category.sku,
 
           warehouseId:
-            warehouse.id ??
+            winner.warehouse.id ??
             null,
 
           warehouse:
-            warehouse,
+            winner.warehouse,
 
           status:
             getStatus(
-              qty
+              winner.qty
             )
 
         };
@@ -602,24 +887,35 @@
 
 
     // ----------------------------------------------------------
-    // Render semua
+    // Render dua grid.
     // ----------------------------------------------------------
+
+    el.rawGrid.innerHTML =
+      '';
+
+    RAW_TANKS.forEach(
+      (tank) => {
+
+        el.rawGrid.appendChild(
+          buildCard(
+            map[normalizeKey(tank)]
+          )
+        );
+
+      }
+    );
+
 
     el.productGrid.innerHTML =
       '';
 
-
     PRODUCT_TANKS.forEach(
       (tank) => {
 
-        const item =
-          map[
-            normalizeKey(tank)
-          ];
-
-
         el.productGrid.appendChild(
-          buildCard(item)
+          buildCard(
+            map[normalizeKey(tank)]
+          )
         );
 
       }
@@ -630,25 +926,110 @@
       '[DASHBOARD STOCK]'
     );
 
-
-    PRODUCT_TANKS.forEach(
+    allTanks.forEach(
       (tank) => {
 
         const item =
-          map[
-            normalizeKey(tank)
-          ];
-
+          map[normalizeKey(tank)];
 
         console.log(
           tank,
           '=>',
+          item.name,
           item.qty,
           item.unit
         );
 
       }
     );
+
+
+    renderSummaryTotals(
+      categories
+    );
+
+  }
+
+
+  // ============================================================
+  // SUMMARY TOTALS (KOTAK KANAN ATAS)
+  // ============================================================
+
+  function renderSummaryTotals(
+    categories
+  ) {
+
+    const totalsByKey =
+      {};
+
+    categories.forEach(
+      (category) => {
+
+        const total =
+          (category.warehouses || [])
+            .reduce(
+              (sum, warehouse) =>
+                sum +
+                (toNumber(warehouse.quantity) ?? 0),
+              0
+            );
+
+        totalsByKey[category.key] = {
+          total,
+          unit:
+            category.unit ||
+            'Liter'
+        };
+
+      }
+    );
+
+
+    setSummaryValue(
+      el.summarySolarHsd,
+      totalsByKey.solar_hsd
+    );
+
+    setSummaryValue(
+      el.summarySolarMurni,
+      totalsByKey.solar_murni
+    );
+
+    setSummaryValue(
+      el.summaryBahanBaku,
+      totalsByKey.bahan_baku
+    );
+
+    // Tirisan belum ada sumber data / tangki — biarkan "-".
+
+  }
+
+
+  function setSummaryValue(
+    node,
+    entry
+  ) {
+
+    if (!node) {
+      return;
+    }
+
+
+    if (!entry) {
+
+      node.textContent =
+        '-';
+
+      return;
+
+    }
+
+
+    node.textContent =
+      formatQtyUnit(
+        entry.total,
+        entry.unit
+      );
 
   }
 
@@ -1072,12 +1453,40 @@
 
 
     el.lastUpdate.textContent =
-      new Date().toLocaleTimeString(
+      formatDateTime(
+        new Date()
+      );
+
+  }
+
+
+  function formatDateTime(
+    date
+  ) {
+
+    const datePart =
+      date.toLocaleDateString(
         'id-ID',
         {
-          hour12: false
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
         }
       );
+
+
+    const pad =
+      (n) =>
+        String(n).padStart(2, '0');
+
+
+    const timePart =
+      `${pad(date.getHours())}:` +
+      `${pad(date.getMinutes())}:` +
+      `${pad(date.getSeconds())}`;
+
+
+    return `${datePart}, ${timePart}`;
 
   }
 
