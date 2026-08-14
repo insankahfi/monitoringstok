@@ -995,11 +995,6 @@
       totalsByKey.solar_murni
     );
 
-    setSummaryValue(
-      el.summaryBahanBaku,
-      totalsByKey.bahan_baku
-    );
-
     // Tirisan belum ada sumber data / tangki — biarkan "-".
 
   }
