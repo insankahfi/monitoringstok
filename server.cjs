@@ -48,9 +48,9 @@ const ALL_PRODUCT_CATEGORIES = [
     id: process.env.MEKARI_PRODUCT_ID_SOLAR_HSD || '48285791'
   },
   {
-    key: 'solar_murni',
-    label: 'Solar Murni',
-    id: process.env.MEKARI_PRODUCT_ID_SOLAR_MURNI || '105035777'
+    key: 'tirisan_produk',
+    label: 'Tirisan Produk',
+    id: process.env.MEKARI_PRODUCT_ID_SOLAR_MURNI || '105059390'
   },
   {
     key: 'atl_pro',
