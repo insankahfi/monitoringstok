@@ -4,37 +4,60 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta name="theme-color" content="#0f5fd7">
+<meta name="theme-color" content="#0a0e16">
 
 <title>ATL Energy — Stock Monitoring</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
 
 :root{
-  --blue:#0f5fd7;
-  --blue-dark:#0b4cad;
-  --blue-soft:#eaf3ff;
+  --blue:#38bdf8;
+  --blue-dark:#0ea5e9;
+  --blue-soft:rgba(56,189,248,.13);
 
-  --bg:#f5f7fa;
-  --white:#ffffff;
+  --bg:#0a0e16;
+  --white:#12161f;
+  --panel:#12161f;
+  --panel-raised:#161c28;
 
-  --text:#172033;
-  --muted:#748096;
+  --text:#eef2f8;
+  --muted:#7c8898;
 
-  --line:#e4e9f0;
+  --line:#232a38;
+  --line-soft:#1a202c;
 
-  --green:#16a34a;
-  --yellow:#d97706;
-  --red:#dc2626;
-  --grey:#9aa5b5;
+  --green:#22c55e;
+  --green-soft:rgba(34,197,94,.13);
+  --yellow:#f59e0b;
+  --yellow-soft:rgba(245,158,11,.13);
+  --red:#f0475a;
+  --red-soft:rgba(240,71,90,.13);
+  --grey:#4b5566;
+  --grey-soft:rgba(75,85,102,.18);
 
-  --radius:16px;
+  --radius:10px;
+  --radius-lg:14px;
 
   --shadow:
-    0 8px 24px rgba(25,45,75,.07);
+    0 10px 26px rgba(0,0,0,.4);
 
   --shadow-hover:
-    0 14px 34px rgba(25,45,75,.12);
+    0 16px 38px rgba(0,0,0,.55);
+
+  --font-display:
+    'Barlow Condensed', 'Oswald', ui-sans-serif, sans-serif;
+
+  --font-body:
+    Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --font-mono:
+    'JetBrains Mono', ui-monospace, "SFMono-Regular",
+    Menlo, Consolas, monospace;
 }
 
 
@@ -52,22 +75,23 @@ body{
   margin:0;
 
   background:
+    radial-gradient(
+      1200px 600px at 15% -10%,
+      rgba(56,189,248,.06) 0%,
+      rgba(10,14,22,0) 60%
+    ),
     linear-gradient(
       180deg,
-      #f8fafc 0%,
-      #f3f6fa 100%
+      #0a0e16 0%,
+      #0b0f18 100%
     );
+
+  background-attachment:fixed;
 
   color:var(--text);
 
   font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+    var(--font-body);
 
   min-height:100vh;
 }
@@ -107,9 +131,9 @@ button{
   padding:0 28px;
 
   background:
-    rgba(255,255,255,.94);
+    rgba(10,14,22,.86);
 
-  backdrop-filter:blur(12px);
+  backdrop-filter:blur(14px);
 
   border-bottom:
     1px solid var(--line);
@@ -131,25 +155,29 @@ button{
   display:grid;
   place-items:center;
 
-  border-radius:12px;
+  border-radius:10px;
 
   background:
     linear-gradient(
       135deg,
       var(--blue),
-      #2878e5
+      var(--blue-dark)
     );
 
-  color:#fff;
+  color:#04121c;
 
-  font-size:13px;
+  font-family:
+    var(--font-display);
+
+  font-size:15px;
   font-weight:900;
 
-  letter-spacing:.04em;
+  letter-spacing:.02em;
 
   box-shadow:
-    0 7px 18px
-    rgba(15,95,215,.22);
+    0 0 0 1px rgba(56,189,248,.35),
+    0 8px 20px
+    rgba(56,189,248,.22);
 }
 
 
@@ -157,14 +185,19 @@ button{
 
   margin:0;
 
+  font-family:
+    var(--font-display);
+
   font-size:
-    clamp(1rem,1.5vw,1.2rem);
+    clamp(1.15rem,1.7vw,1.4rem);
 
-  font-weight:900;
+  font-weight:800;
 
-  letter-spacing:.02em;
+  letter-spacing:.05em;
 
-  color:#172033;
+  text-transform:uppercase;
+
+  color:var(--text);
 }
 
 
@@ -174,7 +207,12 @@ button{
 
   color:var(--muted);
 
-  font-size:.73rem;
+  font-family:
+    var(--font-mono);
+
+  font-size:.68rem;
+
+  letter-spacing:.02em;
 }
 
 
@@ -199,13 +237,16 @@ button{
 
   display:block;
 
-  color:#9aa5b5;
+  color:var(--muted);
+
+  font-family:
+    var(--font-mono);
 
   font-size:.58rem;
 
   text-transform:uppercase;
 
-  letter-spacing:.08em;
+  letter-spacing:.1em;
 }
 
 
@@ -215,11 +256,14 @@ button{
 
   margin-top:5px;
 
-  color:#273247;
+  color:var(--text);
 
-  font-size:.9rem;
+  font-family:
+    var(--font-mono);
 
-  font-weight:800;
+  font-size:.85rem;
+
+  font-weight:600;
 }
 
 
@@ -232,21 +276,25 @@ button{
   border:
     1px solid var(--line);
 
-  border-radius:10px;
+  border-radius:8px;
 
   padding:
     9px 13px;
 
-  color:#334155;
+  color:var(--text);
 
-  background:#fff;
+  background:var(--panel);
 
   transition:
     .18s ease;
 
-  font-size:.78rem;
+  font-size:.72rem;
 
   font-weight:700;
+
+  text-transform:uppercase;
+
+  letter-spacing:.06em;
 }
 
 
@@ -256,17 +304,17 @@ button{
     translateY(-1px);
 
   border-color:
-    #cbd5e1;
+    #34405a;
 
   box-shadow:
     0 5px 14px
-    rgba(15,23,42,.08);
+    rgba(0,0,0,.35);
 }
 
 
 .btn-refresh{
 
-  color:#fff;
+  color:#04121c;
 
   border-color:
     var(--blue);
@@ -276,13 +324,13 @@ button{
 
   box-shadow:
     0 5px 14px
-    rgba(15,95,215,.16);
+    rgba(56,189,248,.22);
 }
 
 
 .btn-refresh:hover{
 
-  color:#fff;
+  color:#04121c;
 
   background:
     var(--blue-dark);
@@ -380,16 +428,16 @@ button{
     12px 15px;
 
   border:
-    1px solid #fecaca;
+    1px solid rgba(240,71,90,.35);
 
   border-radius:
     10px;
 
   background:
-    #fff1f2;
+    var(--red-soft);
 
   color:
-    #b91c1c;
+    #ff8a97;
 
   font-size:.8rem;
 }
@@ -437,13 +485,18 @@ button{
 
   padding:27px;
 
-  background:#fff;
+  background:
+    linear-gradient(
+      165deg,
+      var(--panel-raised) 0%,
+      var(--panel) 55%
+    );
 
   border:
     1px solid var(--line);
 
   border-radius:
-    var(--radius);
+    var(--radius-lg);
 
   box-shadow:
     var(--shadow);
@@ -456,31 +509,74 @@ button{
 
   position:absolute;
 
-  width:240px;
-  height:240px;
+  width:280px;
+  height:280px;
 
-  right:-100px;
-  top:-120px;
+  right:-120px;
+  top:-140px;
 
   border-radius:50%;
 
   background:
-    rgba(15,95,215,.055);
+    rgba(56,189,248,.08);
+
+  filter:blur(4px);
 }
 
 
 .eyebrow{
 
+  position:relative;
+  z-index:1;
+
+  display:flex;
+  align-items:center;
+
+  gap:8px;
+
   color:
     var(--blue);
 
-  font-size:.62rem;
+  font-family:
+    var(--font-mono);
 
-  font-weight:900;
+  font-size:.65rem;
 
-  letter-spacing:.13em;
+  font-weight:600;
+
+  letter-spacing:.14em;
 
   text-transform:uppercase;
+}
+
+
+.live-dot{
+
+  width:6px;
+  height:6px;
+
+  border-radius:50%;
+
+  background:var(--green);
+
+  box-shadow:
+    0 0 0 3px var(--green-soft);
+
+  animation:
+    pulse-dot 1.8s ease-in-out infinite;
+}
+
+
+@keyframes pulse-dot{
+
+  0%, 100%{
+    opacity:1;
+  }
+
+  50%{
+    opacity:.35;
+  }
+
 }
 
 
@@ -491,20 +587,29 @@ button{
   z-index:1;
 
   margin:
-    9px 0 9px;
+    12px 0 9px;
 
   max-width:720px;
 
+  color:var(--text);
+
+  font-family:
+    var(--font-display);
+
+  font-weight:800;
+
+  text-transform:uppercase;
+
   font-size:
     clamp(
-      1.55rem,
-      3vw,
-      2.45rem
+      1.9rem,
+      3.6vw,
+      2.9rem
     );
 
-  line-height:1.08;
+  line-height:1.03;
 
-  letter-spacing:-.035em;
+  letter-spacing:.005em;
 }
 
 
@@ -535,17 +640,17 @@ button{
   display:grid;
 
   grid-template-columns:
-    repeat(4, 1fr);
+    repeat(3, 1fr);
 
   overflow:hidden;
 
-  background:#fff;
+  background:var(--panel);
 
   border:
     1px solid var(--line);
 
   border-radius:
-    var(--radius);
+    var(--radius-lg);
 
   box-shadow:
     var(--shadow);
@@ -555,7 +660,7 @@ button{
 .summary-item{
 
   padding:
-    14px 12px;
+    20px 18px;
 
   border-right:
     1px solid var(--line);
@@ -571,15 +676,15 @@ button{
 
 .summary-item .k{
 
-  color:#8a95a7;
+  color:var(--muted);
 
-  font-size:.58rem;
+  font-size:.66rem;
 
-  letter-spacing:.06em;
+  letter-spacing:.08em;
 
   text-transform:uppercase;
 
-  font-weight:800;
+  font-weight:700;
 
   white-space:nowrap;
 
@@ -591,15 +696,18 @@ button{
 
 .summary-item .v{
 
-  margin-top:6px;
+  margin-top:8px;
 
-  color:#172033;
+  color:var(--text);
 
-  font-size:clamp(.95rem, 1.6vw, 1.2rem);
+  font-family:
+    var(--font-display);
 
-  font-weight:900;
+  font-size:clamp(1.5rem, 2.6vw, 1.95rem);
 
-  letter-spacing:-.02em;
+  font-weight:800;
+
+  letter-spacing:.01em;
 
   white-space:nowrap;
 
@@ -609,13 +717,31 @@ button{
 }
 
 
+.summary-item:nth-child(1) .v{
+  color:var(--blue);
+}
+
+
+.summary-item:nth-child(2) .v{
+  color:var(--green);
+}
+
+
+.summary-item:nth-child(3) .v{
+  color:var(--yellow);
+}
+
+
 .summary-item .s{
 
-  margin-top:4px;
+  margin-top:6px;
 
   color:var(--muted);
 
-  font-size:.6rem;
+  font-family:
+    var(--font-mono);
+
+  font-size:.66rem;
 
   white-space:nowrap;
 
@@ -647,17 +773,23 @@ button{
 }
 
 
+.tirisan-panel{
+
+  margin-top:18px;
+}
+
+
 .panel{
 
   overflow:hidden;
 
-  background:#fff;
+  background:var(--panel);
 
   border:
     1px solid var(--line);
 
   border-radius:
-    var(--radius);
+    var(--radius-lg);
 
   box-shadow:
     var(--shadow);
@@ -684,19 +816,27 @@ button{
 
   margin:0;
 
-  color:#253047;
+  color:var(--text);
 
-  font-size:.76rem;
+  font-family:
+    var(--font-display);
 
-  font-weight:900;
+  font-size:1.05rem;
 
-  letter-spacing:.10em;
+  font-weight:800;
+
+  letter-spacing:.06em;
+
+  text-transform:uppercase;
 }
 
 
 .panel-caption{
 
-  color:#9aa5b5;
+  color:var(--muted);
+
+  font-family:
+    var(--font-mono);
 
   font-size:.68rem;
 }
@@ -732,15 +872,18 @@ button{
 
   min-height:145px;
 
-  padding:16px;
+  padding:16px 16px 16px 18px;
 
-  background:#fff;
+  background:var(--panel-raised);
 
   border:
-    1px solid #e3e8ef;
+    1px solid var(--line);
+
+  border-left:
+    3px solid var(--grey);
 
   border-radius:
-    14px;
+    var(--radius);
 
   cursor:pointer;
 
@@ -756,10 +899,24 @@ button{
     translateY(-3px);
 
   border-color:
-    #b9d1f4;
+    #34405a;
 
   box-shadow:
     var(--shadow-hover);
+}
+
+
+.tank-card.tank-status-green{
+
+  border-left-color:
+    var(--green);
+}
+
+
+.tank-card.tank-status-grey{
+
+  border-left-color:
+    var(--grey);
 }
 
 
@@ -770,11 +927,16 @@ button{
   color:
     var(--blue);
 
-  font-size:.72rem;
+  font-family:
+    var(--font-mono);
 
-  font-weight:900;
+  font-size:.76rem;
 
-  letter-spacing:.07em;
+  font-weight:600;
+
+  letter-spacing:.04em;
+
+  text-transform:uppercase;
 }
 
 
@@ -784,11 +946,11 @@ button{
 
   min-height:20px;
 
-  color:#536074;
+  color:var(--text);
 
-  font-size:.82rem;
+  font-size:.9rem;
 
-  font-weight:700;
+  font-weight:600;
 }
 
 
@@ -807,21 +969,27 @@ button{
 
 .qty-value{
 
-  color:#172033;
+  color:var(--text);
 
-  font-size:1.55rem;
+  font-family:
+    var(--font-display);
 
-  font-weight:900;
+  font-size:1.85rem;
 
-  letter-spacing:-.04em;
+  font-weight:800;
+
+  letter-spacing:.01em;
 }
 
 
 .qty-unit{
 
-  color:#8b96a7;
+  color:var(--muted);
 
-  font-size:.7rem;
+  font-family:
+    var(--font-mono);
+
+  font-size:.72rem;
 }
 
 
@@ -829,15 +997,20 @@ button{
 
   margin-top:8px;
 
-  color:#98a2b1;
+  color:var(--muted);
 
-  font-size:.67rem;
+  font-family:
+    var(--font-mono);
+
+  font-size:.66rem;
 }
 
 
 .available-line strong{
 
-  color:#526075;
+  color:#a9b3c4;
+
+  font-weight:600;
 }
 
 
@@ -866,7 +1039,7 @@ button{
 
   box-shadow:
     0 0 0 4px
-    rgba(22,163,74,.10);
+    var(--green-soft);
 }
 
 
@@ -877,7 +1050,7 @@ button{
 
   box-shadow:
     0 0 0 4px
-    rgba(217,119,6,.10);
+    var(--yellow-soft);
 }
 
 
@@ -888,7 +1061,7 @@ button{
 
   box-shadow:
     0 0 0 4px
-    rgba(220,38,38,.10);
+    var(--red-soft);
 }
 
 
@@ -899,7 +1072,7 @@ button{
 
   box-shadow:
     0 0 0 4px
-    rgba(148,163,184,.10);
+    var(--grey-soft);
 }
 
 
@@ -913,9 +1086,12 @@ button{
     24px 14px;
 
   color:
-    #9aa5b5;
+    var(--muted);
 
-  font-size:.78rem;
+  font-family:
+    var(--font-mono);
+
+  font-size:.76rem;
 
   text-align:center;
 }
@@ -968,11 +1144,11 @@ button{
 
 .log-entry .log-title{
 
-  color:#253047;
+  color:var(--text);
 
   font-size:.8rem;
 
-  font-weight:800;
+  font-weight:700;
 
   white-space:nowrap;
 
@@ -986,9 +1162,12 @@ button{
 
   margin-top:3px;
 
-  color:#9aa5b5;
+  color:var(--muted);
 
-  font-size:.68rem;
+  font-family:
+    var(--font-mono);
+
+  font-size:.66rem;
 }
 
 
@@ -998,11 +1177,14 @@ button{
 
   text-align:right;
 
+  font-family:
+    var(--font-mono);
+
   font-size:.82rem;
 
-  font-weight:900;
+  font-weight:700;
 
-  letter-spacing:-.02em;
+  letter-spacing:-.01em;
 
   white-space:nowrap;
 }
@@ -1019,7 +1201,7 @@ button{
 
 
 .log-qty.neutral{
-  color:#536074;
+  color:var(--muted);
 }
 
 
@@ -1066,17 +1248,17 @@ button{
 
   padding:25px;
 
-  background:#fff;
+  background:var(--panel-raised);
 
   border:
-    1px solid #e1e6ed;
+    1px solid var(--line);
 
   border-radius:
-    18px;
+    var(--radius-lg);
 
   box-shadow:
     0 30px 80px
-    rgba(15,23,42,.22);
+    rgba(0,0,0,.55);
 }
 
 
@@ -1103,11 +1285,11 @@ button{
   border:
     1px solid var(--line);
 
-  border-radius:9px;
+  border-radius:8px;
 
-  color:#718096;
+  color:var(--muted);
 
-  background:#fff;
+  background:var(--panel);
 
   font-size:1.3rem;
 }
@@ -1118,7 +1300,18 @@ button{
   margin:
     0 40px 18px 0;
 
-  font-size:1.3rem;
+  color:var(--text);
+
+  font-family:
+    var(--font-display);
+
+  font-weight:800;
+
+  letter-spacing:.03em;
+
+  text-transform:uppercase;
+
+  font-size:1.5rem;
 }
 
 
@@ -1126,6 +1319,8 @@ button{
 
   margin:
     0 0 12px;
+
+  color:var(--text);
 
   font-size:.95rem;
 }
@@ -1156,21 +1351,24 @@ button{
     11px 0;
 
   border-bottom:
-    1px solid #edf0f4;
+    1px solid var(--line-soft);
 }
 
 
 .detail-row .label{
 
-  color:#8b96a7;
+  color:var(--muted);
 
-  font-size:.8rem;
+  font-family:
+    var(--font-mono);
+
+  font-size:.76rem;
 }
 
 
 .detail-row .value{
 
-  color:#263247;
+  color:var(--text);
 
   font-size:.8rem;
 
@@ -1205,7 +1403,7 @@ button{
 
 .form-row label{
 
-  color:#7c8798;
+  color:var(--muted);
 
   font-size:.8rem;
 }
@@ -1217,13 +1415,13 @@ textarea{
   width:100%;
 
   border:
-    1px solid #dce2ea;
+    1px solid var(--line);
 
-  border-radius:10px;
+  border-radius:8px;
 
-  background:#fff;
+  background:var(--panel);
 
-  color:#172033;
+  color:var(--text);
 
   padding:
     10px 12px;
@@ -1236,11 +1434,11 @@ input:focus,
 textarea:focus{
 
   border-color:
-    #9fc1ef;
+    var(--blue);
 
   box-shadow:
     0 0 0 4px
-    rgba(15,95,215,.07);
+    var(--blue-soft);
 }
 
 
@@ -1260,9 +1458,12 @@ textarea{
   background:
     var(--blue);
 
-  color:#fff;
+  color:#04121c;
 
-  font-weight:900;
+  font-weight:800;
+
+  text-transform:uppercase;
+  letter-spacing:.05em;
 }
 
 
@@ -1278,7 +1479,7 @@ textarea{
 
 .btn-secondary{
 
-  background:#fff;
+  background:var(--panel);
 }
 
 
@@ -1300,21 +1501,24 @@ textarea{
 
   padding:12px;
 
-  border-radius:10px;
+  border-radius:8px;
 
-  background:#f5f7fa;
+  background:var(--panel);
+
+  border:
+    1px solid var(--line);
 
   font-size:.78rem;
 }
 
 
 .success{
-  color:#15803d;
+  color:#4ade80;
 }
 
 
 .error{
-  color:#b91c1c;
+  color:#ff8a97;
 }
 
 
@@ -1375,6 +1579,22 @@ textarea{
   .summary-card{
 
     grid-template-columns:1fr 1fr;
+  }
+
+
+  .summary-item:nth-child(2){
+
+    border-right:0;
+  }
+
+
+  .summary-item:nth-child(3){
+
+    grid-column:1 / -1;
+
+    border-right:0;
+
+    border-top:1px solid var(--line);
   }
 
 
@@ -1516,6 +1736,7 @@ textarea{
     <div class="hero-card">
 
       <div class="eyebrow">
+        <span class="live-dot"></span>
         ATL ENERGY · STOCK CONTROL
       </div>
 
@@ -1534,32 +1755,12 @@ textarea{
       <div class="summary-item">
 
         <div class="k">
-          Solar HSD
+          Produk
         </div>
 
         <div
           class="v"
-          id="summarySolarHsd"
-        >
-          -
-        </div>
-
-        <div class="s">
-          Total tangki
-        </div>
-
-      </div>
-
-
-      <div class="summary-item">
-
-        <div class="k">
-          Solar Murni
-        </div>
-
-        <div
-          class="v"
-          id="summarySolarMurni"
+          id="summaryProduk"
         >
           -
         </div>
@@ -1594,7 +1795,7 @@ textarea{
       <div class="summary-item">
 
         <div class="k">
-          Tirisan
+          Tirisan Produk
         </div>
 
         <div
@@ -1605,7 +1806,7 @@ textarea{
         </div>
 
         <div class="s">
-          Tangki belum dibuat
+          Total tangki
         </div>
 
       </div>
@@ -1980,6 +2181,336 @@ textarea{
       </div>
 
     </section>
+
+  </section>
+
+
+  <!-- =====================================================
+       TIRISAN PRODUK
+  ====================================================== -->
+
+  <section class="panel tirisan-panel">
+
+    <div class="panel-header">
+
+      <div>
+
+        <h2 class="panel-title">
+          TIRISAN PRODUK
+        </h2>
+
+        <div class="panel-caption">
+          Tangki tirisan · 11 unit
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div
+      id="tirisanGrid"
+      class="card-grid"
+    >
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          V-01
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          V-02
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          V-03
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          V-04
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          V-05
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          V-06
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          V-07
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          V-08
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          TPS
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          Tangki IBC (Kempu)
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="tank-card">
+
+        <span class="status-dot status-grey"></span>
+
+        <div class="code">
+          Bak Basa
+        </div>
+
+        <div class="item-name">
+          Tirisan Produk
+        </div>
+
+        <div class="qty-line">
+
+          <span class="qty-value">
+            0
+          </span>
+
+          <span class="qty-unit">
+            Liter
+          </span>
+
+        </div>
+
+      </div>
+
+
+    </div>
 
   </section>
 
