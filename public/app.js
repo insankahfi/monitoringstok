@@ -28,6 +28,20 @@
     'WT-04'
   ];
 
+  const TIRISAN_TANKS = [
+    'V-01',
+    'V-02',
+    'V-03',
+    'V-04',
+    'V-05',
+    'V-06',
+    'V-07',
+    'V-08',
+    'TPS',
+    'Tangki IBC (Kempu)',
+    'Bak Basa'
+  ];
+
   // ============================================================
   // ELEMENT
   // ============================================================
@@ -42,6 +56,11 @@
     productGrid:
       document.getElementById(
         'productsGrid'
+      ),
+
+    tirisanGrid:
+      document.getElementById(
+        'tirisanGrid'
       ),
 
     lastUpdate:
@@ -59,14 +78,9 @@
         'logProduk'
       ),
 
-    summarySolarHsd:
+    summaryProduk:
       document.getElementById(
-        'summarySolarHsd'
-      ),
-
-    summarySolarMurni:
-      document.getElementById(
-        'summarySolarMurni'
+        'summaryProduk'
       ),
 
     summaryBahanBaku:
@@ -184,6 +198,8 @@
 
     renderProductMaster();
 
+    renderTirisanMaster();
+
 
     try {
 
@@ -230,6 +246,8 @@
       renderRawMaterials();
 
       renderProductMaster();
+
+      renderTirisanMaster();
 
 
       showGlobalError(
@@ -619,6 +637,63 @@
 
 
   // ============================================================
+  // TIRISAN MASTER
+  // ============================================================
+
+  function renderTirisanMaster() {
+
+    if (!el.tirisanGrid) {
+      return;
+    }
+
+
+    el.tirisanGrid.innerHTML =
+      '';
+
+
+    TIRISAN_TANKS.forEach(
+      (tank) => {
+
+        el.tirisanGrid.appendChild(
+          buildCard({
+
+            type:
+              'tirisan',
+
+            label:
+              tank,
+
+            code:
+              tank,
+
+            name:
+              'Tirisan Produk',
+
+            qty:
+              0,
+
+            availableQty:
+              0,
+
+            unit:
+              'Liter',
+
+            status:
+              'grey',
+
+            warehouseId:
+              null
+
+          })
+        );
+
+      }
+    );
+
+  }
+
+
+  // ============================================================
   // RENDER STOCK (SEMUA KATEGORI)
   //
   // Setiap tangki (ST-xx / FST-xx / TK-xx / WT-xx) diisi dari
@@ -632,32 +707,91 @@
     categories
   ) {
 
-    const allTanks =
-      RAW_TANKS.concat(
-        PRODUCT_TANKS
-      );
+    // ------------------------------------------------------------
+    // Grid tempat sebuah tangki tampil (Bahan Baku / Produk /
+    // Tirisan Produk) ditentukan dari KODE tangkinya sendiri
+    // (fisik), BUKAN dari kategori produk yang lagi isi di
+    // dalamnya. Jadi kalau TK-04 (tangki produk) lagi diisi
+    // "Bahan Baku", dia tetap muncul di grid PRODUK, cuma
+    // labelnya "Bahan Baku".
+    // ------------------------------------------------------------
+
+    function classifyTankCode(
+      code
+    ) {
+
+      const trimmed =
+        String(code).trim();
+
+
+      if (
+        RAW_TANKS.some(
+          (tank) =>
+            normalizeKey(tank) ===
+            normalizeKey(code)
+        ) ||
+        /^ST[-_]?\d/i.test(trimmed)
+      ) {
+        return 'raw';
+      }
+
+
+      if (
+        TIRISAN_TANKS.some(
+          (tank) =>
+            normalizeKey(tank) ===
+            normalizeKey(code)
+        ) ||
+        /^V[-_]?0*[1-8]$/i.test(trimmed) ||
+        /^TPS$/i.test(trimmed) ||
+        /IBC/i.test(trimmed) ||
+        /KEMPU/i.test(trimmed) ||
+        /BAK\s*BASA/i.test(trimmed)
+      ) {
+        return 'tirisan';
+      }
+
+
+      return 'product';
+
+    }
 
 
     const map =
       {};
 
+    const order =
+      [];
+
 
     // ----------------------------------------------------------
-    // Default kosong untuk semua tangki dulu.
+    // Seed tangki yang sudah dikenal dulu (urutan tampilan
+    // tetap konsisten), default kosong.
     // ----------------------------------------------------------
 
-    allTanks.forEach(
+    RAW_TANKS.concat(
+      PRODUCT_TANKS
+    ).concat(
+      TIRISAN_TANKS
+    ).forEach(
       (tank) => {
 
-        const isRaw =
-          RAW_TANKS.includes(tank);
+        const type =
+          classifyTankCode(tank);
 
-        map[
-          normalizeKey(tank)
-        ] = {
+        const key =
+          normalizeKey(tank);
 
-          type:
-            isRaw ? 'raw' : 'product',
+        const defaultName =
+          type === 'raw'
+            ? 'Bahan Baku'
+            : type === 'tirisan'
+              ? 'Tirisan Produk'
+              : 'Produk';
+
+        map[key] = {
+
+          type,
 
           label:
             tank,
@@ -666,7 +800,7 @@
             tank,
 
           name:
-            isRaw ? 'Bahan Baku' : 'Produk',
+            defaultName,
 
           qty:
             0,
@@ -691,14 +825,17 @@
 
         };
 
+        order.push(key);
+
       }
     );
 
 
     // ----------------------------------------------------------
-    // Kumpulkan dulu semua kandidat per tangki dari tiap
-    // kategori (satu tangki bisa muncul di data 3 kategori
-    // sekaligus, biasanya cuma satu yang ada isinya).
+    // Kumpulkan kandidat dari SEMUA warehouse yang benar-benar
+    // dikirim Mekari — bukan cuma yang cocok ke daftar tangki
+    // lama. Tangki baru yang belum pernah dikenal otomatis
+    // ditambahkan ke daftar tampilan di sini.
     // ----------------------------------------------------------
 
     const candidates =
@@ -710,26 +847,18 @@
         (category.warehouses || []).forEach(
           (warehouse) => {
 
-            const code =
-              normalizeWarehouseCode(
+            const rawCode =
+              String(
                 warehouse.code ||
-                warehouse.name
-              );
+                warehouse.name ||
+                ''
+              ).trim();
 
 
-            const target =
-              allTanks.find(
-                (tank) =>
-                  normalizeWarehouseCode(
-                    tank
-                  ) === code
-              );
-
-
-            if (!target) {
+            if (!rawCode) {
 
               console.log(
-                '[WAREHOUSE DI SKIP]',
+                '[WAREHOUSE TANPA KODE DI SKIP]',
                 category.label,
                 warehouse
               );
@@ -737,6 +866,10 @@
               return;
 
             }
+
+
+            const key =
+              normalizeKey(rawCode);
 
 
             const qty =
@@ -752,22 +885,73 @@
               qty;
 
 
-            const key =
-              normalizeKey(target);
-
-
             if (!candidates[key]) {
               candidates[key] = [];
             }
 
 
             candidates[key].push({
-              target,
+              code: rawCode,
               category,
               warehouse,
               qty,
               available
             });
+
+
+            // Tangki baru yang belum pernah terdaftar —
+            // masukkan ke urutan tampilan sekarang.
+            if (!map[key]) {
+
+              const type =
+                classifyTankCode(rawCode);
+
+              const defaultName =
+                type === 'raw'
+                  ? 'Bahan Baku'
+                  : type === 'tirisan'
+                    ? 'Tirisan Produk'
+                    : 'Produk';
+
+              map[key] = {
+
+                type,
+
+                label:
+                  rawCode,
+
+                code:
+                  rawCode,
+
+                name:
+                  defaultName,
+
+                qty:
+                  0,
+
+                availableQty:
+                  0,
+
+                unit:
+                  'Liter',
+
+                productId:
+                  null,
+
+                sku:
+                  null,
+
+                warehouseId:
+                  null,
+
+                status:
+                  'grey'
+
+              };
+
+              order.push(key);
+
+            }
 
           }
         );
@@ -783,6 +967,9 @@
     // sama-sama ada isi di tangki yang sama (harusnya tidak
     // terjadi di dunia nyata), pakai yang qty-nya paling
     // besar dan catat sebagai konflik di console.
+    //
+    // Grid (raw/product/tirisan) TETAP ikut kode tangki fisik,
+    // cuma qty/nama/unit yang berubah sesuai kategori pemenang.
     // ----------------------------------------------------------
 
     Object.keys(candidates).forEach(
@@ -816,7 +1003,7 @@
 
           console.warn(
             '[KONFLIK TANGKI]',
-            winner.target,
+            winner.code,
             'ada isi di lebih dari satu kategori:',
             filled
               .map(
@@ -834,18 +1021,21 @@
         }
 
 
+        const type =
+          classifyTankCode(
+            winner.code
+          );
+
+
         map[key] = {
 
-          type:
-            RAW_TANKS.includes(winner.target)
-              ? 'raw'
-              : 'product',
+          type,
 
           label:
-            winner.target,
+            winner.code,
 
           code:
-            winner.target,
+            winner.code,
 
           name:
             winner.category.label ||
@@ -887,36 +1077,65 @@
 
 
     // ----------------------------------------------------------
-    // Render dua grid.
+    // Render tiga grid, urut sesuai urutan ditemukan (tangki
+    // lama dulu, tangki baru menyusul di belakang).
     // ----------------------------------------------------------
 
     el.rawGrid.innerHTML =
       '';
 
-    RAW_TANKS.forEach(
-      (tank) => {
-
-        el.rawGrid.appendChild(
-          buildCard(
-            map[normalizeKey(tank)]
-          )
-        );
-
-      }
-    );
-
-
     el.productGrid.innerHTML =
       '';
 
-    PRODUCT_TANKS.forEach(
-      (tank) => {
+    if (el.tirisanGrid) {
 
-        el.productGrid.appendChild(
-          buildCard(
-            map[normalizeKey(tank)]
-          )
-        );
+      el.tirisanGrid.innerHTML =
+        '';
+
+    }
+
+
+    const zoneTotals =
+      {
+        raw: 0,
+        product: 0,
+        tirisan: 0
+      };
+
+
+    order.forEach(
+      (key) => {
+
+        const item =
+          map[key];
+
+        zoneTotals[item.type] +=
+          item.qty;
+
+
+        if (item.type === 'raw') {
+
+          el.rawGrid.appendChild(
+            buildCard(item)
+          );
+
+        } else if (item.type === 'tirisan') {
+
+          if (el.tirisanGrid) {
+
+            el.tirisanGrid.appendChild(
+              buildCard(item)
+            );
+
+          }
+
+        } else {
+
+          el.productGrid.appendChild(
+            buildCard(item)
+          );
+
+        }
 
       }
     );
@@ -926,14 +1145,14 @@
       '[DASHBOARD STOCK]'
     );
 
-    allTanks.forEach(
-      (tank) => {
+    order.forEach(
+      (key) => {
 
         const item =
-          map[normalizeKey(tank)];
+          map[key];
 
         console.log(
-          tank,
+          item.code,
           '=>',
           item.name,
           item.qty,
@@ -945,7 +1164,7 @@
 
 
     renderSummaryTotals(
-      categories
+      zoneTotals
     );
 
   }
@@ -956,54 +1175,34 @@
   // ============================================================
 
   function renderSummaryTotals(
-    categories
+    zoneTotals
   ) {
 
-    const totalsByKey =
-      {};
-
-    categories.forEach(
-      (category) => {
-
-        const total =
-          (category.warehouses || [])
-            .reduce(
-              (sum, warehouse) =>
-                sum +
-                (toNumber(warehouse.quantity) ?? 0),
-              0
-            );
-
-        totalsByKey[category.key] = {
-          total,
-          unit:
-            category.unit ||
-            'Liter'
-        };
-
-      }
-    );
-
+    // zoneTotals dijumlah per ZONA tangki fisik (Bahan Baku /
+    // Produk / Tirisan Produk), bukan per produk Mekari — jadi
+    // otomatis kepakai walau nanti nambah produk baru lagi.
 
     setSummaryValue(
-      el.summarySolarHsd,
-      totalsByKey.solar_hsd
+      el.summaryProduk,
+      zoneTotals.product
     );
 
     setSummaryValue(
-      el.summarySolarMurni,
-      totalsByKey.solar_murni
+      el.summaryBahanBaku,
+      zoneTotals.raw
     );
 
-
-    // Tirisan belum ada sumber data / tangki — biarkan "-".
+    setSummaryValue(
+      el.summaryTirisan,
+      zoneTotals.tirisan
+    );
 
   }
 
 
   function setSummaryValue(
     node,
-    entry
+    total
   ) {
 
     if (!node) {
@@ -1011,7 +1210,10 @@
     }
 
 
-    if (!entry) {
+    if (
+      total === undefined ||
+      total === null
+    ) {
 
       node.textContent =
         '-';
@@ -1023,8 +1225,8 @@
 
     node.textContent =
       formatQtyUnit(
-        entry.total,
-        entry.unit
+        total,
+        'Liter'
       );
 
   }
@@ -1069,6 +1271,11 @@
     const status =
       item.status ||
       getStatus(qty);
+
+
+    card.classList.add(
+      `tank-status-${status}`
+    );
 
 
     card.innerHTML = `
