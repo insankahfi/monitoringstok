@@ -13,6 +13,210 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 // ============================================================
+// TES KONEKSI GOOGLE SHEETS
+// URL tes: /api/google-check
+// ============================================================
+
+app.get('/api/google-check', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+
+  let tahap = 'Membaca konfigurasi Render';
+
+  try {
+    const fsGoogle = require('fs');
+
+    const credentialsPath =
+      process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+    const spreadsheetId =
+      String(process.env.GOOGLE_SPREADSHEET_ID || '').trim();
+
+    const sheetName =
+      process.env.GOOGLE_SHEET_NAME || 'Riwayat_Stok';
+
+    if (!credentialsPath) {
+      throw new Error(
+        'GOOGLE_APPLICATION_CREDENTIALS belum diisi di Environment Render.'
+      );
+    }
+
+    if (!spreadsheetId) {
+      throw new Error(
+        'GOOGLE_SPREADSHEET_ID belum diisi di Environment Render.'
+      );
+    }
+
+    if (!fsGoogle.existsSync(credentialsPath)) {
+      throw new Error(
+        'File kredensial tidak ditemukan. Periksa Secret Files dan GOOGLE_APPLICATION_CREDENTIALS.'
+      );
+    }
+
+    tahap = 'Membaca file kredensial Google';
+
+    let credentials;
+
+    try {
+      credentials = JSON.parse(
+        fsGoogle.readFileSync(credentialsPath, 'utf8')
+      );
+    } catch {
+      throw new Error(
+        'Isi Secret File bukan JSON yang valid. Salin ulang seluruh isi file JSON dari Google.'
+      );
+    }
+
+    if (
+      credentials.type !== 'service_account' ||
+      !credentials.client_email ||
+      !credentials.private_key
+    ) {
+      throw new Error(
+        'File JSON bukan kredensial service account yang lengkap.'
+      );
+    }
+
+    tahap = 'Meminta izin akses Google';
+
+    const tokenUrl = 'https://oauth2.googleapis.com/token';
+
+    const now = Math.floor(Date.now() / 1000);
+
+    function encodeBase64Url(value) {
+      return Buffer.from(value)
+        .toString('base64')
+        .replace(/=/g, '')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
+    }
+
+    const header = encodeBase64Url(
+      JSON.stringify({
+        alg: 'RS256',
+        typ: 'JWT'
+      })
+    );
+
+    const claims = encodeBase64Url(
+      JSON.stringify({
+        iss: credentials.client_email,
+        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        aud: tokenUrl,
+        iat: now,
+        exp: now + 3600
+      })
+    );
+
+    const unsignedToken = `${header}.${claims}`;
+
+    const signature = crypto.sign(
+      'RSA-SHA256',
+      Buffer.from(unsignedToken),
+      credentials.private_key
+    );
+
+    const assertion =
+      `${unsignedToken}.${encodeBase64Url(signature)}`;
+
+    const form = new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion
+    });
+
+    const tokenResponse = await axios.post(
+      tokenUrl,
+      form.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 30000
+      }
+    );
+
+    const accessToken = tokenResponse.data?.access_token;
+
+    if (!accessToken) {
+      throw new Error('Google tidak memberikan access token.');
+    }
+
+    tahap = 'Membaca spreadsheet';
+
+    const sheetResponse = await axios.get(
+      'https://sheets.googleapis.com/v4/spreadsheets/' +
+      encodeURIComponent(spreadsheetId),
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        },
+        params: {
+          fields: 'sheets(properties(title))'
+        },
+        timeout: 30000
+      }
+    );
+
+    const tabs = (sheetResponse.data.sheets || []).map(
+      (sheet) => sheet.properties?.title
+    );
+
+    if (!tabs.includes(sheetName)) {
+      throw new Error(
+        `Spreadsheet berhasil diakses, tetapi tab "${sheetName}" belum ditemukan. Periksa nama tab dan GOOGLE_SHEET_NAME.`
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: 'Render berhasil terhubung ke Google Sheets.',
+      tab: sheetName,
+      readTest: 'BERHASIL',
+      writeTest: 'BELUM DIUJI',
+      stockSaving: 'BELUM DIAKTIFKAN'
+    });
+
+  } catch (err) {
+    const googleStatus = err.response?.status;
+
+    let message;
+
+    if (googleStatus === 403) {
+      message =
+        'Akses Google ditolak. Periksa Google Sheets API sudah aktif dan spreadsheet sudah dibagikan ke email service account.';
+    } else if (googleStatus === 404) {
+      message =
+        'Spreadsheet tidak ditemukan atau belum dapat diakses. Periksa ID spreadsheet dan izin Share.';
+    } else if (
+      err.code === 'ECONNABORTED' ||
+      err.code === 'ETIMEDOUT'
+    ) {
+      message =
+        'Koneksi ke Google timeout. Tunggu sebentar lalu coba lagi.';
+    } else if (err.response) {
+      message =
+        `Google menolak permintaan (HTTP ${googleStatus}). Periksa kredensial service account.`;
+    } else {
+      message = err.message || 'Tes koneksi gagal.';
+    }
+
+    // Jangan mencetak seluruh objek error:
+    // objek tersebut bisa memuat kredensial permintaan.
+    console.error(
+      '[GOOGLE CHECK]',
+      tahap,
+      message
+    );
+
+    return res.status(502).json({
+      success: false,
+      tahap,
+      error: message
+    });
+  }
+});
+
+// ================= END GOOGLE CHECK =================
+// ============================================================
 // PATCH SALES ATL
 // Letakkan sesudah express.static, sebelum const PORT.
 // Memakai fungsi mekariGet yang sudah ada pada server ini.
