@@ -8,38 +8,19 @@
   // ============================================================
 
   const RAW_TANKS = [
-    'ST-01',
-    'ST-02',
-    'ST-03',
-    'ST-04',
-    'ST-05'
+    'ST-01', 'ST-02', 'ST-03', 'ST-04', 'ST-05'
   ];
 
   const PRODUCT_TANKS = [
-    'FST-01',
-    'FST-02',
-    'TK-01',
-    'TK-02',
-    'TK-03',
-    'TK-04',
-    'WT-01',
-    'WT-02',
-    'WT-03',
-    'WT-04'
+    'FST-01', 'FST-02',
+    'TK-01', 'TK-02', 'TK-03', 'TK-04',
+    'WT-01', 'WT-02', 'WT-03', 'WT-04'
   ];
 
   const TIRISAN_TANKS = [
-    'V-01',
-    'V-02',
-    'V-03',
-    'V-04',
-    'V-05',
-    'V-06',
-    'V-07',
-    'V-08',
-    'TPS',
-    'Tangki IBC (Kempu)',
-    'Bak Basa'
+    'V-01', 'V-02', 'V-03', 'V-04',
+    'V-05', 'V-06', 'V-07', 'V-08',
+    'TPS', 'Tangki IBC (Kempu)', 'Bak Basa'
   ];
 
   // ============================================================
@@ -52,7 +33,6 @@
     tirisanGrid: document.getElementById('tirisanGrid'),
 
     lastUpdate: document.getElementById('lastUpdate'),
-
     logBahan: document.getElementById('logBahan'),
     logProduk: document.getElementById('logProduk'),
 
@@ -80,37 +60,99 @@
     confirmCancel: document.getElementById('confirmCancel')
   };
 
+  const historyEl = {
+    date: document.getElementById('histDate'),
+    shift: document.getElementById('histShift'),
+    password: document.getElementById('histPassword'),
+    status: document.getElementById('histStatus'),
+    save: document.getElementById('histSave'),
+    read: document.getElementById('histRead'),
+    live: document.getElementById('histLive')
+  };
+
   let isFetching = false;
   let currentProduct = null;
-
   let salesPage = 1;
   let isLoadingSales = false;
+
+  let atlHistoryMode = false;
+  let historyBusy = false;
+  let saveAttempt = null;
+
+  // ============================================================
+  // FETCH JSON
+  // ============================================================
+
+  async function fetchApi(url, options = {}) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...(options.headers || {})
+      },
+      cache: 'no-store'
+    });
+
+    let body;
+
+    try {
+      body = await response.json();
+    } catch (err) {
+      throw new Error(
+        `Response server bukan JSON yang valid (HTTP ${response.status}).`
+      );
+    }
+
+    if (!response.ok || !body?.success) {
+      const message =
+        typeof body?.error === 'string'
+          ? body.error
+          : body?.error?.message;
+
+      throw new Error(
+        message || `Permintaan gagal (HTTP ${response.status}).`
+      );
+    }
+
+    return body;
+  }
+
+  async function fetchStock() {
+    const body = await fetchApi('/api/stock');
+
+    if (!Array.isArray(body.data?.categories)) {
+      throw new Error('Format data stok dari server tidak valid.');
+    }
+
+    return {
+      categories: body.data.categories,
+      unconfigured: Array.isArray(body.unconfigured)
+        ? body.unconfigured
+        : []
+    };
+  }
 
   // ============================================================
   // LOAD DASHBOARD
   // ============================================================
 
   async function loadDashboard() {
-    if (isFetching) {
+    if (atlHistoryMode || historyBusy || isFetching) {
       return;
     }
 
     isFetching = true;
-
     setLoading(true);
     hideGlobalError();
+    closeModal();
 
     try {
-      // Master tangki tetap ditampilkan saat data dimuat.
       renderRawMaterials();
       renderProductMaster();
       renderTirisanMaster();
 
       try {
-        const {
-          categories,
-          unconfigured
-        } = await fetchStock();
+        const { categories, unconfigured } = await fetchStock();
 
         renderStock(categories);
         updateLastUpdate();
@@ -119,7 +161,7 @@
           showGlobalError(
             'Kategori belum terhubung ke Mekari: ' +
             unconfigured.join(', ') +
-            '. Isi product ID-nya di .env server lalu restart.'
+            '. Periksa product ID pada environment server.'
           );
         } else {
           hideGlobalError();
@@ -136,12 +178,10 @@
         setSummaryValue(el.summaryTirisan, null);
 
         showGlobalError(
-          err.message ||
-          'Gagal mengambil data dari Mekari Jurnal.'
+          err.message || 'Gagal mengambil data dari Mekari Jurnal.'
         );
       }
 
-      // Log tetap dicoba meskipun pengambilan stok gagal.
       await loadMovements();
     } finally {
       isFetching = false;
@@ -150,62 +190,7 @@
   }
 
   // ============================================================
-  // FETCH JSON
-  // ============================================================
-
-  async function fetchApi(url) {
-    const response = await fetch(url, {
-      headers: {
-        Accept: 'application/json'
-      },
-      cache: 'no-store'
-    });
-
-    let body;
-
-    try {
-      body = await response.json();
-    } catch (err) {
-      throw new Error(
-        `Response server bukan JSON yang valid (HTTP ${response.status}).`
-      );
-    }
-
-    if (!response.ok || !body.success) {
-      const message =
-        typeof body.error === 'string'
-          ? body.error
-          : body.error?.message;
-
-      throw new Error(
-        message ||
-        `Permintaan gagal (HTTP ${response.status}).`
-      );
-    }
-
-    return body;
-  }
-
-  // ============================================================
-  // FETCH STOCK
-  // ============================================================
-
-  async function fetchStock() {
-    const body = await fetchApi('/api/stock');
-
-    return {
-      categories: Array.isArray(body.data?.categories)
-        ? body.data.categories
-        : [],
-
-      unconfigured: Array.isArray(body.unconfigured)
-        ? body.unconfigured
-        : []
-    };
-  }
-
-  // ============================================================
-  // LOAD LOG
+  // LOG TRANSAKSI
   // ============================================================
 
   async function loadMovements() {
@@ -215,28 +200,29 @@
         'raw',
         'Belum ada transaksi bahan baku.'
       ),
-
       loadLogKeluar()
     ]);
   }
 
   // ============================================================
-  // LOG PRODUK KELUAR
-  //
-  // Data dari Sales Invoice Jurnal.
-  // Filter ATL-Pro dan ATL-Diesel dilakukan server.cjs.
-  // Satu halaman memeriksa maksimal 30 invoice.
+  // SALES: 10 INVOICE PER HALAMAN
+  // Filter ATL-Pro / ATL-Diesel dilakukan oleh server.
+  // Jumlah baris produk bisa berbeda dari jumlah invoice.
   // ============================================================
 
   async function loadLogKeluar(page = salesPage) {
     const container = el.logProduk;
 
-    if (!container || isLoadingSales) {
+    if (
+      !container ||
+      isLoadingSales ||
+      atlHistoryMode ||
+      historyBusy
+    ) {
       return;
     }
 
     isLoadingSales = true;
-
     container.setAttribute('aria-busy', 'true');
 
     container.querySelectorAll('button').forEach((button) => {
@@ -254,34 +240,23 @@
 
       salesPage = page;
 
-      renderLogKeluar(
-        container,
-        body.data
-      );
-
-      renderSalesPagination(
-        container,
-        body.meta || {},
-        page
-      );
+      renderLogKeluar(container, body.data);
+      renderSalesPagination(container, body.meta || {}, page);
     } catch (err) {
       console.error('[Log Keluar]', err);
 
       container.innerHTML = `
         <div class="empty-state">
           ${escapeHtml(
-            err.message ||
-            'Log produk keluar belum bisa dimuat.'
+            err.message || 'Log produk keluar belum bisa dimuat.'
           )}
         </div>
       `;
 
       const retryWrap = document.createElement('div');
-
       retryWrap.className = 'empty-state';
 
       const retryButton = document.createElement('button');
-
       retryButton.type = 'button';
       retryButton.textContent = 'Coba lagi';
       retryButton.style.margin = '8px';
@@ -300,11 +275,9 @@
 
   function renderSalesPagination(container, meta, page) {
     const footer = document.createElement('div');
-
     footer.className = 'empty-state';
 
     const description = document.createElement('div');
-
     description.textContent =
       `Halaman ${page} · ` +
       `${meta.invoicesScanned ?? 0} invoice diperiksa.`;
@@ -312,10 +285,8 @@
     footer.appendChild(description);
 
     const note = document.createElement('div');
-
     note.textContent =
       'Berdasarkan faktur penjualan, bukan konfirmasi pengiriman fisik.';
-
     note.style.marginTop = '6px';
     note.style.fontSize = '12px';
 
@@ -360,18 +331,14 @@
           pada halaman invoice ini.
         </div>
       `;
-
       return;
     }
 
     container.innerHTML = rows.map((row) => {
-      const dateLabel = formatTransactionDate(row.date);
-
       const sub = [
-        dateLabel,
+        formatTransactionDate(row.date),
         row.invoiceNumber,
         row.customer,
-
         row.warehouse && row.warehouse !== '-'
           ? row.warehouse
           : ''
@@ -382,36 +349,25 @@
 
       return `
         <div class="log-entry">
-
           <div class="log-main">
-
             <div class="log-title">
-              ${escapeHtml(row.productName || '-')}
-              · KELUAR
+              ${escapeHtml(row.productName || '-')} · KELUAR
             </div>
-
-            <div class="log-sub">
-              ${sub}
-            </div>
-
+            <div class="log-sub">${sub}</div>
           </div>
 
           <div class="log-qty out">
             -${escapeHtml(
-              formatQtyUnit(
-                row.quantity,
-                row.unit || 'Liter'
-              )
+              formatQtyUnit(row.quantity, row.unit || 'Liter')
             )}
           </div>
-
         </div>
       `;
     }).join('');
   }
 
   // ============================================================
-  // LOG BAHAN / MOVEMENT
+  // LOG BAHAN
   // ============================================================
 
   async function loadMovementsInto(
@@ -439,26 +395,20 @@
       container.innerHTML = `
         <div class="empty-state">
           ${escapeHtml(
-            err.message ||
-            'Transaksi belum bisa dimuat.'
+            err.message || 'Transaksi belum bisa dimuat.'
           )}
         </div>
       `;
     }
   }
 
-  function renderMovements(
-    container,
-    rows,
-    emptyMessage
-  ) {
+  function renderMovements(container, rows, emptyMessage) {
     if (!Array.isArray(rows) || !rows.length) {
       container.innerHTML = `
         <div class="empty-state">
           ${escapeHtml(emptyMessage)}
         </div>
       `;
-
       return;
     }
 
@@ -466,252 +416,181 @@
       const qtyNum = toNumber(row.quantity) ?? 0;
 
       const direction =
-        qtyNum > 0
-          ? 'in'
-          : qtyNum < 0
-            ? 'out'
-            : 'neutral';
+        qtyNum > 0 ? 'in' : qtyNum < 0 ? 'out' : 'neutral';
 
-      const dateLabel = formatTransactionDate(row.date);
+      const sub = [
+        formatTransactionDate(row.date),
+        row.warehouse && row.warehouse !== '-'
+          ? row.warehouse
+          : '',
+        row.note || ''
+      ]
+        .filter(Boolean)
+        .map(escapeHtml)
+        .join(' · ');
 
       return `
         <div class="log-entry">
-
           <div class="log-main">
-
             <div class="log-title">
               ${escapeHtml(row.productName || '-')}
-
-              ${
-                row.type
-                  ? ' · ' + escapeHtml(row.type)
-                  : ''
-              }
+              ${row.type ? ' · ' + escapeHtml(row.type) : ''}
             </div>
-
-            <div class="log-sub">
-              ${escapeHtml(dateLabel)}
-
-              ${
-                row.warehouse && row.warehouse !== '-'
-                  ? ' · ' + escapeHtml(row.warehouse)
-                  : ''
-              }
-
-              ${
-                row.note
-                  ? ' · ' + escapeHtml(row.note)
-                  : ''
-              }
-            </div>
-
+            <div class="log-sub">${sub}</div>
           </div>
 
           <div class="log-qty ${direction}">
             ${escapeHtml(
-              formatQtyUnit(
-                qtyNum,
-                row.unit || 'Liter',
-                true
-              )
+              formatQtyUnit(qtyNum, row.unit || 'Liter', true)
             )}
           </div>
-
         </div>
       `;
     }).join('');
   }
 
   // ============================================================
-  // BAHAN BAKU MASTER
+  // MASTER CARD
   // ============================================================
+
+  function defaultTankName(type) {
+    if (type === 'raw') {
+      return 'Bahan Baku';
+    }
+
+    if (type === 'tirisan') {
+      return 'Tirisan Produk';
+    }
+
+    return 'Produk';
+  }
+
+  function createEmptyTank(tank, type) {
+    return {
+      type,
+      label: tank,
+      code: tank,
+      name: defaultTankName(type),
+      qty: 0,
+      availableQty: 0,
+      unit: 'Liter',
+      productId: null,
+      sku: null,
+      warehouseId: null,
+      status: 'grey'
+    };
+  }
+
+  function renderMaster(container, tanks, type) {
+    if (!container) {
+      return;
+    }
+
+    container.innerHTML = '';
+
+    tanks.forEach((tank) => {
+      container.appendChild(
+        buildCard(createEmptyTank(tank, type))
+      );
+    });
+  }
 
   function renderRawMaterials() {
-    if (!el.rawGrid) {
-      return;
-    }
-
-    el.rawGrid.innerHTML = '';
-
-    RAW_TANKS.forEach((tank) => {
-      el.rawGrid.appendChild(
-        buildCard({
-          type: 'raw',
-          label: tank,
-          code: tank,
-          name: 'Bahan Baku',
-          qty: 0,
-          availableQty: 0,
-          unit: 'Liter',
-          status: 'grey'
-        })
-      );
-    });
+    renderMaster(el.rawGrid, RAW_TANKS, 'raw');
   }
-
-  // ============================================================
-  // PRODUCT MASTER
-  // ============================================================
 
   function renderProductMaster() {
-    if (!el.productGrid) {
-      return;
-    }
-
-    el.productGrid.innerHTML = '';
-
-    PRODUCT_TANKS.forEach((tank) => {
-      el.productGrid.appendChild(
-        buildCard({
-          type: 'product',
-          label: tank,
-          code: tank,
-          name: 'Produk',
-          qty: 0,
-          availableQty: 0,
-          unit: 'Liter',
-          status: 'grey',
-          warehouseId: null
-        })
-      );
-    });
+    renderMaster(el.productGrid, PRODUCT_TANKS, 'product');
   }
 
-  // ============================================================
-  // TIRISAN MASTER
-  // ============================================================
-
   function renderTirisanMaster() {
-    if (!el.tirisanGrid) {
-      return;
-    }
-
-    el.tirisanGrid.innerHTML = '';
-
-    TIRISAN_TANKS.forEach((tank) => {
-      el.tirisanGrid.appendChild(
-        buildCard({
-          type: 'tirisan',
-          label: tank,
-          code: tank,
-          name: 'Tirisan Produk',
-          qty: 0,
-          availableQty: 0,
-          unit: 'Liter',
-          status: 'grey',
-          warehouseId: null
-        })
-      );
-    });
+    renderMaster(el.tirisanGrid, TIRISAN_TANKS, 'tirisan');
   }
 
   // ============================================================
   // RENDER STOCK
-  //
-  // Zona tampilan mengikuti kode tangki fisik.
-  // Nama dan quantity mengikuti produk pada warehouse.
+  // Mempertahankan aturan lama:
+  // satu kategori ditampilkan untuk setiap tangki.
+  // Jika beberapa kategori berisi, pilih qty absolut terbesar.
   // ============================================================
 
+  function classifyTankCode(code) {
+    const trimmed = String(code).trim();
+    const key = normalizeKey(code);
+
+    if (
+      RAW_TANKS.some((tank) => normalizeKey(tank) === key) ||
+      /^ST[-_]?\d/i.test(trimmed)
+    ) {
+      return 'raw';
+    }
+
+    if (
+      TIRISAN_TANKS.some((tank) => normalizeKey(tank) === key) ||
+      /^V[-_]?0*[1-8]$/i.test(trimmed) ||
+      /^TPS$/i.test(trimmed) ||
+      /IBC/i.test(trimmed) ||
+      /KEMPU/i.test(trimmed) ||
+      /BAK\s*BASA/i.test(trimmed)
+    ) {
+      return 'tirisan';
+    }
+
+    return 'product';
+  }
+
   function renderStock(categories) {
-    function classifyTankCode(code) {
-      const trimmed = String(code).trim();
-
-      if (
-        RAW_TANKS.some((tank) => {
-          return normalizeKey(tank) === normalizeKey(code);
-        }) ||
-        /^ST[-_]?\d/i.test(trimmed)
-      ) {
-        return 'raw';
-      }
-
-      if (
-        TIRISAN_TANKS.some((tank) => {
-          return normalizeKey(tank) === normalizeKey(code);
-        }) ||
-        /^V[-_]?0*[1-8]$/i.test(trimmed) ||
-        /^TPS$/i.test(trimmed) ||
-        /IBC/i.test(trimmed) ||
-        /KEMPU/i.test(trimmed) ||
-        /BAK\s*BASA/i.test(trimmed)
-      ) {
-        return 'tirisan';
-      }
-
-      return 'product';
+    if (!Array.isArray(categories)) {
+      throw new Error('Format kategori stok tidak valid.');
     }
 
     const map = Object.create(null);
     const order = [];
-
-    // ----------------------------------------------------------
-    // Tangki master ditambahkan dahulu.
-    // ----------------------------------------------------------
+    const candidates = Object.create(null);
 
     RAW_TANKS
       .concat(PRODUCT_TANKS)
       .concat(TIRISAN_TANKS)
       .forEach((tank) => {
-        const type = classifyTankCode(tank);
         const key = normalizeKey(tank);
 
-        const defaultName =
-          type === 'raw'
-            ? 'Bahan Baku'
-            : type === 'tirisan'
-              ? 'Tirisan Produk'
-              : 'Produk';
-
-        map[key] = {
-          type,
-          label: tank,
-          code: tank,
-          name: defaultName,
-          qty: 0,
-          availableQty: 0,
-          unit: 'Liter',
-          productId: null,
-          sku: null,
-          warehouseId: null,
-          status: 'grey'
-        };
+        map[key] = createEmptyTank(
+          tank,
+          classifyTankCode(tank)
+        );
 
         order.push(key);
       });
 
-    // ----------------------------------------------------------
-    // Kumpulkan warehouse dari semua kategori.
-    // ----------------------------------------------------------
-
-    const candidates = Object.create(null);
-
     categories.forEach((category) => {
+      if (!category) {
+        return;
+      }
+
       const warehouses = Array.isArray(category.warehouses)
         ? category.warehouses
         : [];
 
       warehouses.forEach((warehouse) => {
+        if (!warehouse) {
+          return;
+        }
+
         const rawCode = String(
-          warehouse.code ||
-          warehouse.name ||
-          ''
+          warehouse.code || warehouse.name || ''
         ).trim();
 
         if (!rawCode) {
-          console.log(
-            '[WAREHOUSE TANPA KODE DI SKIP]',
+          console.warn(
+            '[WAREHOUSE TANPA KODE]',
             category.label,
             warehouse
           );
-
           return;
         }
 
         const key = normalizeKey(rawCode);
-
-        const qty =
-          toNumber(warehouse.quantity) ?? 0;
-
+        const qty = toNumber(warehouse.quantity) ?? 0;
         const available =
           toNumber(warehouse.quantity_available) ?? qty;
 
@@ -727,47 +606,19 @@
           available
         });
 
-        // Tangki baru dari Mekari ikut ditampilkan.
         if (!map[key]) {
-          const type = classifyTankCode(rawCode);
-
-          const defaultName =
-            type === 'raw'
-              ? 'Bahan Baku'
-              : type === 'tirisan'
-                ? 'Tirisan Produk'
-                : 'Produk';
-
-          map[key] = {
-            type,
-            label: rawCode,
-            code: rawCode,
-            name: defaultName,
-            qty: 0,
-            availableQty: 0,
-            unit: 'Liter',
-            productId: null,
-            sku: null,
-            warehouseId: null,
-            status: 'grey'
-          };
+          map[key] = createEmptyTank(
+            rawCode,
+            classifyTankCode(rawCode)
+          );
 
           order.push(key);
         }
       });
     });
 
-    // ----------------------------------------------------------
-    // Mempertahankan aturan stok kode awal:
-    // satu kategori ditampilkan untuk setiap tangki.
-    //
-    // Jika beberapa kategori berisi pada tangki yang sama,
-    // pilih quantity absolut terbesar dan tulis peringatan.
-    // ----------------------------------------------------------
-
     Object.keys(candidates).forEach((key) => {
       const list = candidates[key];
-
       const filled = list.filter((candidate) => {
         return candidate.qty !== 0;
       });
@@ -778,9 +629,7 @@
         winner = filled[0];
       } else if (filled.length > 1) {
         winner = filled.reduce((a, b) => {
-          return Math.abs(b.qty) > Math.abs(a.qty)
-            ? b
-            : a;
+          return Math.abs(b.qty) > Math.abs(a.qty) ? b : a;
         });
 
         console.warn(
@@ -789,9 +638,7 @@
           'ada isi di lebih dari satu kategori:',
           filled.map((candidate) => {
             return (
-              candidate.category.label +
-              '=' +
-              candidate.qty
+              candidate.category.label + '=' + candidate.qty
             );
           }).join(', ')
         );
@@ -799,37 +646,24 @@
         winner = list[0];
       }
 
-      const type = classifyTankCode(winner.code);
-
       map[key] = {
-        type,
-
+        type: classifyTankCode(winner.code),
         label: winner.code,
         code: winner.code,
-
         name:
           winner.category.label ||
           winner.category.name ||
           'Produk',
-
         qty: winner.qty,
         availableQty: winner.available,
-
         unit: winner.category.unit || 'Liter',
-
         productId: winner.category.productId,
         sku: winner.category.sku,
-
         warehouseId: winner.warehouse.id ?? null,
         warehouse: winner.warehouse,
-
         status: getStatus(winner.qty)
       };
     });
-
-    // ----------------------------------------------------------
-    // Render grid.
-    // ----------------------------------------------------------
 
     if (el.rawGrid) {
       el.rawGrid.innerHTML = '';
@@ -854,57 +688,29 @@
 
       zoneTotals[item.type] += item.qty;
 
-      if (item.type === 'raw') {
-        if (el.rawGrid) {
-          el.rawGrid.appendChild(buildCard(item));
-        }
-      } else if (item.type === 'tirisan') {
-        if (el.tirisanGrid) {
-          el.tirisanGrid.appendChild(buildCard(item));
-        }
-      } else {
-        if (el.productGrid) {
-          el.productGrid.appendChild(buildCard(item));
-        }
+      const container =
+        item.type === 'raw'
+          ? el.rawGrid
+          : item.type === 'tirisan'
+            ? el.tirisanGrid
+            : el.productGrid;
+
+      if (container) {
+        container.appendChild(buildCard(item));
       }
-    });
-
-    console.log('[DASHBOARD STOCK]');
-
-    order.forEach((key) => {
-      const item = map[key];
-
-      console.log(
-        item.code,
-        '=>',
-        item.name,
-        item.qty,
-        item.unit
-      );
     });
 
     renderSummaryTotals(zoneTotals);
   }
 
   // ============================================================
-  // SUMMARY TOTALS
+  // TOTAL
   // ============================================================
 
   function renderSummaryTotals(zoneTotals) {
-    setSummaryValue(
-      el.summaryProduk,
-      zoneTotals.product
-    );
-
-    setSummaryValue(
-      el.summaryBahanBaku,
-      zoneTotals.raw
-    );
-
-    setSummaryValue(
-      el.summaryTirisan,
-      zoneTotals.tirisan
-    );
+    setSummaryValue(el.summaryProduk, zoneTotals.product);
+    setSummaryValue(el.summaryBahanBaku, zoneTotals.raw);
+    setSummaryValue(el.summaryTirisan, zoneTotals.tirisan);
   }
 
   function setSummaryValue(node, total) {
@@ -912,15 +718,10 @@
       return;
     }
 
-    if (total === undefined || total === null) {
-      node.textContent = '-';
-      return;
-    }
-
-    node.textContent = formatQtyUnit(
-      total,
-      'Liter'
-    );
+    node.textContent =
+      total === undefined || total === null
+        ? '-'
+        : formatQtyUnit(total, 'Liter');
   }
 
   // ============================================================
@@ -931,34 +732,19 @@
     const card = document.createElement('div');
 
     card.className = 'tank-card';
-
-    card.dataset.id =
-      item.label ||
-      item.code ||
-      '';
+    card.dataset.id = item.label || item.code || '';
 
     const qty = toNumber(item.qty) ?? 0;
-
-    const available =
-      toNumber(item.availableQty) ?? qty;
-
-    const status =
-      item.status ||
-      getStatus(qty);
+    const available = toNumber(item.availableQty) ?? qty;
+    const status = item.status || getStatus(qty);
 
     card.classList.add(`tank-status-${status}`);
 
     card.innerHTML = `
-      <span
-        class="status-dot status-${escapeHtml(status)}"
-      ></span>
+      <span class="status-dot status-${escapeHtml(status)}"></span>
 
       <div class="code">
-        ${escapeHtml(
-          item.label ||
-          item.code ||
-          '-'
-        )}
+        ${escapeHtml(item.label || item.code || '-')}
       </div>
 
       <div class="item-name">
@@ -966,23 +752,17 @@
       </div>
 
       <div class="qty-line">
-
         <span class="qty-value">
           ${escapeHtml(formatNumber(qty))}
         </span>
-
         <span class="qty-unit">
           ${escapeHtml(item.unit || 'Liter')}
         </span>
-
       </div>
 
       <div class="available-line">
         Available:
-
-        <strong>
-          ${escapeHtml(formatNumber(available))}
-        </strong>
+        <strong>${escapeHtml(formatNumber(available))}</strong>
       </div>
     `;
 
@@ -994,7 +774,7 @@
   }
 
   // ============================================================
-  // MODAL
+  // DETAIL MODAL
   // ============================================================
 
   function openDetailModal(item) {
@@ -1006,9 +786,7 @@
 
     if (el.modalTitle) {
       el.modalTitle.textContent =
-        item.label ||
-        item.name ||
-        'Detail';
+        item.label || item.name || 'Detail';
     }
 
     if (el.opnameQtyFisik) {
@@ -1043,28 +821,14 @@
     }
 
     const rows = [
-      [
-        'Produk',
-        item.name || '-'
-      ],
-      [
-        'Kode Tank',
-        item.label || '-'
-      ],
-      [
-        'SKU',
-        item.sku || '-'
-      ],
-      [
-        'Warehouse ID',
-        item.warehouseId ?? '-'
-      ],
+      ['Sumber', atlHistoryMode ? 'Riwayat tersimpan' : 'Stok terkini'],
+      ['Produk', item.name || '-'],
+      ['Kode Tank', item.label || '-'],
+      ['SKU', item.sku || '-'],
+      ['Warehouse ID', item.warehouseId ?? '-'],
       [
         'Qty Sistem',
-        formatQtyUnit(
-          item.qty ?? 0,
-          item.unit || 'Liter'
-        )
+        formatQtyUnit(item.qty ?? 0, item.unit || 'Liter')
       ],
       [
         'Qty Available',
@@ -1078,15 +842,8 @@
     el.modalBody.innerHTML = rows.map(([label, value]) => {
       return `
         <div class="detail-row">
-
-          <span class="label">
-            ${escapeHtml(label)}
-          </span>
-
-          <span class="value">
-            ${escapeHtml(String(value))}
-          </span>
-
+          <span class="label">${escapeHtml(label)}</span>
+          <span class="value">${escapeHtml(String(value))}</span>
         </div>
       `;
     }).join('');
@@ -1097,10 +854,7 @@
     currentProduct = null;
   }
 
-  el.modalClose?.addEventListener(
-    'click',
-    closeModal
-  );
+  el.modalClose?.addEventListener('click', closeModal);
 
   el.modal?.addEventListener('click', (event) => {
     if (event.target === el.modal) {
@@ -1109,7 +863,7 @@
   });
 
   // ============================================================
-  // OPNAME
+  // OPNAME: PERHITUNGAN SELISIH SAJA
   // ============================================================
 
   el.opnameQtyFisik?.addEventListener('input', () => {
@@ -1131,21 +885,14 @@
       return;
     }
 
-    const sistem =
-      toNumber(currentProduct.qty) ?? 0;
-
-    const selisih = fisik - sistem;
+    const sistem = toNumber(currentProduct.qty) ?? 0;
 
     el.opnameSelisih.textContent = formatQtyUnit(
-      selisih,
+      fisik - sistem,
       currentProduct.unit || 'Liter',
       true
     );
   });
-
-  // ============================================================
-  // ADJUSTMENT
-  // ============================================================
 
   el.opnameForm?.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -1161,7 +908,6 @@
     );
 
     el.opnameMessage.classList.add('error');
-
     el.opnameMessage.textContent =
       'Stock Adjustment belum diaktifkan. ' +
       'Tahap ini masih READ-ONLY.';
@@ -1172,42 +918,282 @@
   });
 
   // ============================================================
-  // REFRESH
+  // RIWAYAT STOK GOOGLE SHEETS
   // ============================================================
 
-  el.refreshBtn?.addEventListener(
-    'click',
-    loadDashboard
-  );
+  function historyMessage(message) {
+    if (historyEl.status) {
+      historyEl.status.textContent = message;
+    }
+  }
+
+  function setHistoryBusy(busy) {
+    historyBusy = busy;
+
+    [
+      historyEl.save,
+      historyEl.read,
+      historyEl.live,
+      historyEl.date,
+      historyEl.shift,
+      historyEl.password
+    ].forEach((node) => {
+      if (node) {
+        node.disabled = busy;
+      }
+    });
+
+    if (el.refreshBtn) {
+      el.refreshBtn.disabled = busy || isFetching;
+    }
+  }
+
+  function todayJakarta() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Jakarta',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(new Date());
+
+    const values = {};
+
+    parts.forEach((part) => {
+      values[part.type] = part.value;
+    });
+
+    return `${values.year}-${values.month}-${values.day}`;
+  }
+
+  function createSnapshotId() {
+    if (typeof globalThis.crypto?.randomUUID === 'function') {
+      return globalThis.crypto.randomUUID();
+    }
+
+    const bytes = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(bytes);
+
+    return Array.from(bytes, (value) => {
+      return value.toString(16).padStart(2, '0');
+    }).join('');
+  }
+
+  async function historyAction(save) {
+    if (
+      !historyEl.date ||
+      !historyEl.shift ||
+      !historyEl.password ||
+      !historyEl.status
+    ) {
+      showGlobalError(
+        'Panel riwayat belum lengkap. Gunakan index.html versi riwayat.'
+      );
+      return;
+    }
+
+    if (historyBusy || isFetching || isLoadingSales) {
+      historyMessage('Tunggu pemuatan data selesai, lalu coba lagi.');
+      return;
+    }
+
+    const date = historyEl.date.value;
+    const shift = historyEl.shift.value;
+    const password = historyEl.password.value;
+
+    if (!date) {
+      historyMessage('Pilih tanggal terlebih dahulu.');
+      return;
+    }
+
+    if (!['1', '2', '3'].includes(shift)) {
+      historyMessage('Pilih shift 1, 2, atau 3.');
+      return;
+    }
+
+    if (!password) {
+      historyMessage(
+        'Masukkan password admin sesuai STOCK_ADMIN_TOKEN di Render.'
+      );
+      return;
+    }
+
+    if (
+      save &&
+      !window.confirm(
+        'Simpan stok Jurnal SAAT INI untuk tanggal operasional ' +
+        date +
+        ', shift ' +
+        shift +
+        '?\n\nIni tidak mengambil stok masa lalu.'
+      )
+    ) {
+      return;
+    }
+
+    const previousMode = atlHistoryMode;
+
+    setHistoryBusy(true);
+    atlHistoryMode = true;
+    historyMessage(
+      save
+        ? 'Mengambil stok Jurnal dan menyimpan ke Google Sheets...'
+        : 'Membaca riwayat dari Google Sheets...'
+    );
+
+    try {
+      const headers = {
+        'X-Stock-Admin-Token': password
+      };
+
+      let body;
+
+      if (save) {
+        const key = date + ':' + shift;
+
+        if (!saveAttempt || saveAttempt.key !== key) {
+          saveAttempt = {
+            key,
+            id: createSnapshotId()
+          };
+        }
+
+        body = await fetchApi('/api/stock-snapshot', {
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            date,
+            shift,
+            id: saveAttempt.id
+          })
+        });
+
+        atlHistoryMode = previousMode;
+
+        historyMessage(
+          'Snapshot tersimpan untuk ' +
+          date +
+          ' · Shift ' +
+          shift +
+          '. Klik Tampilkan Riwayat untuk melihatnya.'
+        );
+      } else {
+        const query = new URLSearchParams({
+          date,
+          shift
+        });
+
+        body = await fetchApi(
+          '/api/stock-history?' + query.toString(),
+          { headers }
+        );
+
+        if (!Array.isArray(body.data?.categories)) {
+          throw new Error('Format riwayat stok dari server tidak valid.');
+        }
+
+        closeModal();
+        renderStock(body.data.categories);
+        hideGlobalError();
+
+        const label =
+          'RIWAYAT: ' +
+          date +
+          ' · Shift ' +
+          shift +
+          ' · Diambil ' +
+          formatDateTime(new Date(body.savedAt));
+
+        historyMessage(label);
+
+        if (el.lastUpdate) {
+          el.lastUpdate.textContent = label;
+        }
+
+        if (el.logBahan) {
+          el.logBahan.textContent =
+            'Log transaksi tidak disertakan dalam snapshot stok.';
+        }
+
+        if (el.logProduk) {
+          el.logProduk.textContent =
+            'Log sales tidak disertakan dalam snapshot stok.';
+        }
+      }
+    } catch (err) {
+      console.error('[Riwayat Stok]', err);
+      atlHistoryMode = previousMode;
+
+      historyMessage(
+        (err.message || 'Permintaan riwayat gagal.') +
+        (save
+          ? ' Jika status simpan belum jelas, cek Tampilkan Riwayat sebelum mengulang.'
+          : ' Tampilan stok sebelumnya tetap ditampilkan.')
+      );
+    } finally {
+      setHistoryBusy(false);
+    }
+  }
+
+  function returnToLive() {
+    if (historyBusy || isFetching || isLoadingSales) {
+      historyMessage('Tunggu pemuatan selesai.');
+      return;
+    }
+
+    atlHistoryMode = false;
+    historyMessage('Mode: stok terkini dari Jurnal.');
+    loadDashboard();
+  }
+
+  if (historyEl.date && !historyEl.date.value) {
+    historyEl.date.value = todayJakarta();
+  }
+
+  historyEl.save?.addEventListener('click', (event) => {
+    event.preventDefault();
+    historyAction(true);
+  });
+
+  historyEl.read?.addEventListener('click', (event) => {
+    event.preventDefault();
+    historyAction(false);
+  });
+
+  historyEl.live?.addEventListener('click', (event) => {
+    event.preventDefault();
+    returnToLive();
+  });
+
+  // Refresh pada mode riwayat membaca ulang snapshot yang dipilih.
+  el.refreshBtn?.addEventListener('click', () => {
+    if (atlHistoryMode) {
+      historyAction(false);
+    } else {
+      loadDashboard();
+    }
+  });
 
   // ============================================================
   // UI
   // ============================================================
 
   function setLoading(isLoading) {
-    el.loadingBar?.classList.toggle(
-      'hidden',
-      !isLoading
-    );
-
-    el.refreshBtn?.classList.toggle(
-      'spinning',
-      isLoading
-    );
+    el.loadingBar?.classList.toggle('hidden', !isLoading);
+    el.refreshBtn?.classList.toggle('spinning', isLoading);
 
     if (el.refreshBtn) {
-      el.refreshBtn.disabled = isLoading;
+      el.refreshBtn.disabled = isLoading || historyBusy;
     }
   }
 
   function updateLastUpdate() {
-    if (!el.lastUpdate) {
-      return;
+    if (el.lastUpdate) {
+      el.lastUpdate.textContent =
+        'Stok terkini · ' + formatDateTime(new Date());
     }
-
-    el.lastUpdate.textContent = formatDateTime(
-      new Date()
-    );
   }
 
   function formatDateTime(date) {
@@ -1218,25 +1204,16 @@
       return '-';
     }
 
-    const datePart = date.toLocaleDateString(
-      'id-ID',
-      {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      }
-    );
-
-    const pad = (number) => {
-      return String(number).padStart(2, '0');
-    };
-
-    const timePart =
-      `${pad(date.getHours())}:` +
-      `${pad(date.getMinutes())}:` +
-      `${pad(date.getSeconds())}`;
-
-    return `${datePart}, ${timePart}`;
+    return date.toLocaleString('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }) + ' WIB';
   }
 
   function formatTransactionDate(value) {
@@ -1246,7 +1223,6 @@
 
     const text = String(value).trim();
 
-    // Tanggal invoice tidak diberi jam buatan.
     const isoDate = text.match(
       /^(\d{4})-(\d{2})-(\d{2})$/
     );
@@ -1277,14 +1253,11 @@
         : formatDateTime(date);
     }
 
-    return date.toLocaleDateString(
-      'id-ID',
-      {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      }
-    );
+    return date.toLocaleDateString('id-ID', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
   }
 
   function showGlobalError(message) {
@@ -1323,49 +1296,30 @@
 
     const number = Number(value);
 
-    return Number.isFinite(number)
-      ? number
-      : null;
+    return Number.isFinite(number) ? number : null;
   }
 
   function formatNumber(value) {
     const number = toNumber(value) ?? 0;
 
-    return number.toLocaleString(
-      'id-ID',
-      {
-        maximumFractionDigits: 2
-      }
-    );
+    return number.toLocaleString('id-ID', {
+      maximumFractionDigits: 2
+    });
   }
 
   function formatQtyUnit(value, unit, signed) {
     const number = toNumber(value) ?? 0;
-
-    const sign =
-      signed && number > 0
-        ? '+'
-        : '';
+    const sign = signed && number > 0 ? '+' : '';
 
     return (
       sign +
       formatNumber(number) +
-      (
-        unit
-          ? ` ${unit}`
-          : ''
-      )
+      (unit ? ` ${unit}` : '')
     );
   }
 
   function getStatus(qty) {
-    const number = toNumber(qty) ?? 0;
-
-    if (number <= 0) {
-      return 'grey';
-    }
-
-    return 'green';
+    return (toNumber(qty) ?? 0) <= 0 ? 'grey' : 'green';
   }
 
   function normalizeKey(value) {
@@ -1374,26 +1328,15 @@
       .replace(/[^A-Z0-9]/g, '');
   }
 
-  // Helper dari kode awal dipertahankan.
   function normalizeWarehouseCode(value) {
     const key = normalizeKey(value);
+    const match = key.match(/^TK0*(\d+)$/);
 
-    const match = key.match(
-      /^TK0*(\d+)$/
-    );
-
-    if (match) {
-      return `TK${Number(match[1])}`;
-    }
-
-    return key;
+    return match ? `TK${Number(match[1])}` : key;
   }
 
   function escapeHtml(value) {
-    if (
-      value === null ||
-      value === undefined
-    ) {
+    if (value === null || value === undefined) {
       return '';
     }
 
@@ -1407,12 +1350,14 @@
 
   // ============================================================
   // START
+  // Interval ini hanya refresh tampilan, bukan autosave.
   // ============================================================
 
   loadDashboard();
 
-  setInterval(
-    loadDashboard,
-    REFRESH_INTERVAL_MS
-  );
+  setInterval(() => {
+    if (!atlHistoryMode && !historyBusy) {
+      loadDashboard();
+    }
+  }, REFRESH_INTERVAL_MS);
 })();
