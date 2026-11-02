@@ -2585,6 +2585,61 @@ textarea{
   </section>
 
 
+  <!-- =====================================================
+       RIWAYAT STOK PER TANGGAL DAN SHIFT
+  ====================================================== -->
+
+  <section class="panel" id="stockHistoryPanel" style="margin-top:20px">
+    <div class="panel-header">
+      <div>
+        <h2 class="panel-title">RIWAYAT STOK PER SHIFT</h2>
+        <div class="panel-caption">
+          Simpan kondisi stok Jurnal saat ini ke Google Sheets
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:19px;display:grid;gap:12px">
+      <p style="margin:0;color:var(--muted);font-size:.82rem;line-height:1.6">
+        Pilih tanggal operasional dan shift. Tombol Simpan mengambil stok Jurnal
+        pada saat tombol ditekan. Memilih tanggal lampau tidak mengambil stok
+        historis Jurnal secara otomatis.
+      </p>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;align-items:end">
+        <div>
+          <label for="histDate" style="display:block;margin-bottom:6px;color:var(--muted);font-size:.8rem">Tanggal operasional</label>
+          <input id="histDate" type="date" autocomplete="off">
+        </div>
+
+        <div>
+          <label for="histShift" style="display:block;margin-bottom:6px;color:var(--muted);font-size:.8rem">Shift</label>
+          <select id="histShift" style="width:100%;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);padding:10px 12px">
+            <option value="1">Shift 1</option>
+            <option value="2">Shift 2</option>
+            <option value="3">Shift 3</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="histPassword" style="display:block;margin-bottom:6px;color:var(--muted);font-size:.8rem">Password admin</label>
+          <input id="histPassword" type="password" placeholder="Masukkan STOCK_ADMIN_TOKEN" autocomplete="off">
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button id="histSave" class="btn btn-refresh" type="button">Simpan Stok</button>
+        <button id="histRead" class="btn" type="button">Tampilkan Riwayat</button>
+        <button id="histLive" class="btn" type="button">Kembali ke Stok Terkini</button>
+      </div>
+
+      <p id="histStatus" role="status" aria-live="polite" style="margin:0;color:var(--blue);font-size:.82rem">
+        Mode: stok terkini
+      </p>
+    </div>
+  </section>
+
+
 </main>
 
 
@@ -2772,17 +2827,7 @@ textarea{
      APP JS
 ========================================================= -->
 
-<section style="padding:16px;margin:16px;border:1px solid #64748b;border-radius:10px">
-<strong>Riwayat Stok</strong>
-<p>Simpan mengambil stok Jurnal saat ini. Tanggal adalah tanggal operasional shift.</p>
-<input id="histDate" type="date" aria-label="Tanggal operasional">
-<select id="histShift" aria-label="Shift"><option value="1">Shift 1</option><option value="2">Shift 2</option><option value="3">Shift 3</option></select>
-<input id="histPassword" type="password" placeholder="Password simpan / riwayat" autocomplete="off">
-<button id="histSave" type="button">Simpan Stok Sekarang</button>
-<button id="histRead" type="button">Tampilkan Riwayat</button>
-<button id="histLive" type="button">Stok Terkini</button>
-<p id="histStatus" role="status">Mode: stok terkini</p>
-</section><script src="app.js"></script>
+<script src="app.js"></script>
 
 </body>
 </html>
