@@ -1685,6 +1685,177 @@ app.post(
 );
 
 
+
+async function atlSheetsConnection() {
+let tahap;
+    const fsGoogle = require('fs');
+
+    const credentialsPath =
+      process.env.GOOGLE_APPLICATION_CREDENTIALS;
+
+    const spreadsheetId =
+      String(process.env.GOOGLE_SPREADSHEET_ID || '').trim();
+
+    const sheetName =
+      process.env.GOOGLE_SHEET_NAME || 'Riwayat_Stok';
+
+    if (!credentialsPath) {
+      throw new Error(
+        'GOOGLE_APPLICATION_CREDENTIALS belum diisi di Environment Render.'
+      );
+    }
+
+    if (!spreadsheetId) {
+      throw new Error(
+        'GOOGLE_SPREADSHEET_ID belum diisi di Environment Render.'
+      );
+    }
+
+    if (!fsGoogle.existsSync(credentialsPath)) {
+      throw new Error(
+        'File kredensial tidak ditemukan. Periksa Secret Files dan GOOGLE_APPLICATION_CREDENTIALS.'
+      );
+    }
+
+    tahap = 'Membaca file kredensial Google';
+
+    let credentials;
+
+    try {
+      credentials = JSON.parse(
+        fsGoogle.readFileSync(credentialsPath, 'utf8')
+      );
+    } catch {
+      throw new Error(
+        'Isi Secret File bukan JSON yang valid. Salin ulang seluruh isi file JSON dari Google.'
+      );
+    }
+
+    if (
+      credentials.type !== 'service_account' ||
+      !credentials.client_email ||
+      !credentials.private_key
+    ) {
+      throw new Error(
+        'File JSON bukan kredensial service account yang lengkap.'
+      );
+    }
+
+    tahap = 'Meminta izin akses Google';
+
+    const tokenUrl = 'https://oauth2.googleapis.com/token';
+
+    const now = Math.floor(Date.now() / 1000);
+
+    function encodeBase64Url(value) {
+      return Buffer.from(value)
+        .toString('base64')
+        .replace(/=/g, '')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
+    }
+
+    const header = encodeBase64Url(
+      JSON.stringify({
+        alg: 'RS256',
+        typ: 'JWT'
+      })
+    );
+
+    const claims = encodeBase64Url(
+      JSON.stringify({
+        iss: credentials.client_email,
+        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        aud: tokenUrl,
+        iat: now,
+        exp: now + 3600
+      })
+    );
+
+    const unsignedToken = `${header}.${claims}`;
+
+    const signature = crypto.sign(
+      'RSA-SHA256',
+      Buffer.from(unsignedToken),
+      credentials.private_key
+    );
+
+    const assertion =
+      `${unsignedToken}.${encodeBase64Url(signature)}`;
+
+    const form = new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion
+    });
+
+    const tokenResponse = await axios.post(
+      tokenUrl,
+      form.toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        timeout: 30000
+      }
+    );
+
+    const accessToken = tokenResponse.data?.access_token;
+
+    if (!accessToken) {
+      throw new Error('Google tidak memberikan access token.');
+    }
+
+return { base: 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(spreadsheetId), range: "'" + sheetName.replace(/'/g, "''") + "'!A:F", headers: { Authorization: `Bearer ${accessToken}` } };
+}
+let atlSaveBusy = false;
+function atlHistoryAuth(req,res,next) {
+ const expected = process.env.STOCK_ADMIN_TOKEN || '';
+ const supplied = req.get('X-Stock-Admin-Token') || '';
+ if(expected.length < 24) return res.status(503).json({success:false,error:'Isi STOCK_ADMIN_TOKEN minimal 24 karakter di Render.'});
+ const hash = x => crypto.createHash('sha256').update(x).digest();
+ if(!crypto.timingSafeEqual(hash(expected),hash(supplied))) return res.status(401).json({success:false,error:'Password admin salah.'});
+ next();
+}
+async function atlReadHistory(c) {
+ const r = await axios.get(c.base+'/values/'+encodeURIComponent(c.range),{headers:c.headers,timeout:30000});
+ return (r.data.values || []).filter(r=>r[0] === 'ATL_SNAPSHOT_V1');
+}
+app.get('/api/stock-history', atlHistoryAuth, async(req,res)=>{
+ try {
+ const rows = await atlReadHistory(await atlSheetsConnection());
+ const matches=rows.filter(r=>r[2]===req.query.date && r[3]===req.query.shift);
+ const row=matches[matches.length-1];
+ if(!row) return res.status(404).json({success:false,error:'Riwayat tanggal dan shift ini belum tersedia.'});
+ res.json({success:true,data:JSON.parse(row[5]),savedAt:row[4],id:row[1]});
+ } catch(e){res.status(502).json({success:false,error:'Gagal membaca riwayat. Periksa izin Google dan format data.'});}
+});
+app.post('/api/stock-snapshot', atlHistoryAuth, async(req,res)=>{
+ if(atlSaveBusy) return res.status(409).json({success:false,error:'Penyimpanan lain sedang berjalan. Tunggu lalu coba lagi.'});
+ const {date,shift,id}=req.body || {};
+ const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ const yesterday=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()-86400000));
+ if(![today,yesterday].includes(date)||!['1','2','3'].includes(String(shift))||!/^[-a-zA-Z0-9]{16,80}$/.test(id||'')) return res.status(400).json({success:false,error:'Tanggal harus hari ini/kemarin, shift 1–3. Data yang disimpan adalah stok saat pengambilan.'});
+ atlSaveBusy=true;
+ try {
+ const c=await atlSheetsConnection();
+ const old=await atlReadHistory(c);
+ if(old.some(r=>r[1]===id)) return res.json({success:true,message:'Catatan ini sudah tersimpan.'});
+ if(old.some(r=>r[2]===date&&r[3]===String(shift))) return res.status(409).json({success:false,error:'Tanggal dan shift ini sudah tersimpan. Buka Riwayat untuk melihatnya.'});
+ const r=await mekariGet('/public/jurnal/scm/public/lo/v1/products/get_product_quantity_per_warehouse',{ids:PRODUCT_CATEGORIES.map(c=>c.id).join(',')});
+ if(!r.ok||!Array.isArray(r.data?.data)) throw new Error('Pengambilan stok Jurnal gagal; tidak ada catatan disimpan.');
+ const categories=PRODUCT_CATEGORIES.map(category=>{
+ const p=r.data.data.find(p=>String(p.id)===String(category.id));
+ if(!p||!Array.isArray(p.warehouse_inventory)||p.warehouse_inventory.some(w=>w.quantity==null||w.quantity===''||!Number.isFinite(Number(w.quantity)))) throw new Error('Data produk/warehouse belum lengkap; penyimpanan dibatalkan.');
+ return {...mapMekariProductToData(p,category.id),key:category.key,label:category.label,productId:category.id,found:true};
+ });
+ const json=JSON.stringify({categories});
+ if(json.length>45000) throw new Error('Snapshot terlalu besar untuk format ini; penyimpanan dibatalkan.');
+ const savedAt=new Date().toISOString();
+ await axios.post(c.base+'/values/'+encodeURIComponent(c.range)+':append',{values:[['ATL_SNAPSHOT_V1',id,date,String(shift),savedAt,json]]},{headers:c.headers,params:{valueInputOption:'RAW',insertDataOption:'INSERT_ROWS'},timeout:30000});
+ res.json({success:true,message:'Stok tersimpan.',savedAt});
+ } catch(e){res.status(502).json({success:false,error:e.response?'Google gagal merespons. Cek Riwayat sebelum mengulang.':e.message});}
+ finally{atlSaveBusy=false;}
+});
 // ============================================================
 // API 404
 // ============================================================
