@@ -2772,7 +2772,17 @@ textarea{
      APP JS
 ========================================================= -->
 
-<script src="app.js"></script>
+<section style="padding:16px;margin:16px;border:1px solid #64748b;border-radius:10px">
+<strong>Riwayat Stok</strong>
+<p>Simpan mengambil stok Jurnal saat ini. Tanggal adalah tanggal operasional shift.</p>
+<input id="histDate" type="date" aria-label="Tanggal operasional">
+<select id="histShift" aria-label="Shift"><option value="1">Shift 1</option><option value="2">Shift 2</option><option value="3">Shift 3</option></select>
+<input id="histPassword" type="password" placeholder="Password simpan / riwayat" autocomplete="off">
+<button id="histSave" type="button">Simpan Stok Sekarang</button>
+<button id="histRead" type="button">Tampilkan Riwayat</button>
+<button id="histLive" type="button">Stok Terkini</button>
+<p id="histStatus" role="status">Mode: stok terkini</p>
+</section><script src="app.js"></script>
 
 </body>
 </html>
