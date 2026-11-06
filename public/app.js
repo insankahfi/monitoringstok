@@ -1361,3 +1361,33 @@
     }
   }, REFRESH_INTERVAL_MS);
 })();
+
+// ATL AI panel: no API key or admin password is persisted in browser storage.
+(() => {
+ const toggle=document.getElementById('atlAiToggle'), panel=document.getElementById('atlAiPanel');
+ if(!toggle || !panel) return;
+ const form=document.getElementById('atlAiForm'), input=document.getElementById('atlAiInput'), log=document.getElementById('atlAiLog'), status=document.getElementById('atlAiStatus'), send=document.getElementById('atlAiSend');
+ let history=[],busy=false;
+ function bubble(role,text){const div=document.createElement('div');div.className='atl-ai-message '+role;div.textContent=text;log.appendChild(div);log.scrollTop=log.scrollHeight;}
+ function close(){panel.hidden=true;toggle.setAttribute('aria-expanded','false');toggle.focus();}
+ toggle.addEventListener('click',()=>{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden) input.focus();});
+ document.getElementById('atlAiClose').addEventListener('click',close);
+ panel.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
+ document.getElementById('atlAiClear').addEventListener('click',()=>{if(busy)return;history=[];log.replaceChildren();document.getElementById('atlAiPassword').value='';status.textContent='Percakapan dihapus.';});
+ form.addEventListener('submit',async e=>{
+  e.preventDefault(); if(busy)return;
+  const text=input.value.trim(),password=document.getElementById('atlAiPassword').value;
+  if(!text)return;
+  if(!password){status.textContent='Isi password admin stok terlebih dahulu.';document.getElementById('atlAiPassword').focus();return;}
+  busy=true;send.disabled=true;input.disabled=true;status.textContent='Membaca pertanyaan dan mengambil data...';bubble('user',text);input.value='';
+  const messages=[...history.slice(-8),{role:'user',content:text}];
+  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),180000);
+  try{
+   const r=await fetch('/api/ai-chat',{method:'POST',headers:{'Content-Type':'application/json','X-Stock-Admin-Token':password},body:JSON.stringify({messages}),signal:controller.signal});
+   let body;try{body=await r.json();}catch{throw new Error('Server belum merespons dengan benar. Periksa deploy Render.');}
+   if(!r.ok || !body.success)throw new Error(body.error || 'Permintaan AI gagal.');
+   bubble('assistant',body.reply);history=[...messages,{role:'assistant',content:body.reply.slice(0,2000)}];status.textContent='Jawaban AI berdasarkan data yang diambil. Periksa sumber dan waktunya.';
+  }catch(err){status.textContent=err.name==='AbortError'?'Permintaan terlalu lama. Coba lagi.':err.message;input.value=text;}
+  finally{clearTimeout(timer);busy=false;send.disabled=false;input.disabled=false;input.focus();}
+ });
+})();
