@@ -1638,6 +1638,23 @@ textarea{
 
 }
 
+
+/* ATL AI stock assistant */
+#atlAiToggle{position:fixed;right:22px;bottom:22px;z-index:110;background:#38bdf8;color:#04121c;border:0;border-radius:24px;padding:14px 22px;font-weight:700;box-shadow:0 8px 30px #0008}
+#atlAiPanel[hidden]{display:none}
+#atlAiPanel{position:fixed;right:22px;bottom:82px;z-index:111;width:min(430px,calc(100vw - 24px));height:min(630px,calc(100dvh - 110px));background:#12161f;border:1px solid #334155;border-radius:16px;box-shadow:0 20px 70px #000b;display:flex;flex-direction:column;overflow:hidden;color:#eef2f8}
+.atl-ai-head{display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #334155;gap:8px}
+.atl-ai-head button{background:transparent;color:#cbd5e1;border:1px solid #334155;border-radius:6px;padding:6px}
+#atlAiLog{flex:1;overflow:auto;padding:14px;min-height:80px}
+.atl-ai-message{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;margin-bottom:12px;background:#1c2533;border-radius:10px;font-size:13px;line-height:1.6}
+.atl-ai-message.user{background:#12374a;margin-left:28px}
+#atlAiForm{padding:14px;display:grid;gap:8px;border-top:1px solid #334155}
+#atlAiForm input,#atlAiForm textarea{width:100%;background:#0a0e16;color:#eef2f8;border:1px solid #334155;border-radius:8px;padding:10px;font:inherit;font-size:13px}
+#atlAiForm label,#atlAiStatus{font-size:11px;color:#a6b4c7;line-height:1.5}
+#atlAiSend{background:#38bdf8;color:#04121c;border:0;border-radius:8px;padding:11px;font-weight:700}
+#atlAiSend:disabled{opacity:.5}
+@media(max-width:500px){#atlAiPanel{right:12px}#atlAiToggle{right:12px}}
+
 </style>
 </head>
 
@@ -2826,6 +2843,19 @@ textarea{
 <!-- =========================================================
      APP JS
 ========================================================= -->
+
+
+<button id="atlAiToggle" type="button" aria-expanded="false" aria-controls="atlAiPanel">Tanya Stok AI</button>
+<section id="atlAiPanel" hidden role="region" aria-label="Asisten stok ATL">
+ <div class="atl-ai-head"><strong>Asisten Stok ATL</strong><div><button id="atlAiClear" type="button">Hapus chat</button> <button id="atlAiClose" type="button" aria-label="Tutup chat">✕</button></div></div>
+ <div id="atlAiLog" role="log" aria-live="polite"><div class="atl-ai-message assistant">Tanya stok tangki atau riwayat tanggal dan shift. Contoh: “Stok FST-01 sekarang berapa?”</div></div>
+ <form id="atlAiForm">
+  <label for="atlAiPassword">Password admin stok</label><input id="atlAiPassword" type="password" autocomplete="off" placeholder="Sesuai STOCK_ADMIN_TOKEN di Render">
+  <label for="atlAiInput">Pertanyaan</label><textarea id="atlAiInput" maxlength="2000" rows="2" required placeholder="Stok ATL-Pro sekarang berapa?"></textarea>
+  <button id="atlAiSend" type="submit">Kirim pertanyaan</button>
+  <div id="atlAiStatus" role="status">Stok terbaru: Jurnal. Riwayat: snapshot Google Sheets. Data terkait pertanyaan dikirim ke DeepSeek untuk menyusun jawaban.</div>
+ </form>
+</section>
 
 <script src="app.js"></script>
 
